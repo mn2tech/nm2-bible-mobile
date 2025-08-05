@@ -10,9 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GroqBibleService, { BibleQueryResponse } from '../services/groqService';
 
 const { width, height } = Dimensions.get('window');
 const isSmallScreen = height < 700;
@@ -20,25 +22,43 @@ const isVerySmallScreen = height < 650;
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [response, setResponse] = useState<BibleQueryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-  
+
   // Calculate available space
   const tabBarHeight = 50 + insets.bottom;
   const headerHeight = 44 + insets.top;
   const availableHeight = height - tabBarHeight - headerHeight;
   const isCompactMode = availableHeight < 500;
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (searchQuery.trim()) {
-      // Here you can add your search logic
-      console.log('Searching for:', searchQuery);
-      // For now, just clear the input
+      setLoading(true);
+      setError(null);
+      setResponse(null);
+      try {
+        const result = await GroqBibleService.queryBible(searchQuery.trim());
+        setResponse(result);
+      } catch (err) {
+        setError('Failed to get response.');
+      } finally {
+        setLoading(false);
+      }
       setSearchQuery('');
     }
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}> 
+      {/* Jesus cross background */}
+      <View pointerEvents="none" style={styles.crossContainer}>
+        {/* Vertical line (center) */}
+        <View style={styles.crossVertical} />
+        {/* Horizontal line (center) */}
+        <View style={styles.crossHorizontal} />
+      </View>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -61,57 +81,90 @@ export default function HomeScreen() {
           </View>
 
           {/* Main Content */}
-          <View style={[styles.mainContent, { height: availableHeight - 140 }]}>
+          <View style={[styles.mainContent, { height: availableHeight - 140 }]}> 
             {/* Logo/Icon */}
-            <View style={styles.logoContainer}>
-              <Ionicons 
-                name="book" 
-                size={isCompactMode ? 35 : isVerySmallScreen ? 40 : isSmallScreen ? 45 : 50} 
-                color="#6366f1" 
-              />
-            </View>
+            <View style={styles.logoContainer}> 
+              <Ionicons  
+                name="book"  
+                size={isCompactMode ? 35 : isVerySmallScreen ? 40 : isSmallScreen ? 45 : 50}  
+                color="#6366f1"  
+              /> 
+            </View> 
 
             {/* Tagline */}
-            <View style={styles.taglineContainer}>
-              <Text style={[styles.taglineText, { 
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28 
-              }]}>Where</Text>
-              <Text style={[styles.taglineText, { 
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28 
-              }]}>wisdom</Text>
-              <Text style={[styles.taglineText, { 
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28 
-              }]}>begins</Text>
-            </View>
-          </View>
+            <View style={styles.taglineContainer}> 
+              <Text style={[styles.taglineText, {  
+                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+              }]}>Where</Text> 
+              <Text style={[styles.taglineText, {  
+                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+              }]}>wisdom</Text> 
+              <Text style={[styles.taglineText, {  
+                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+              }]}>begins</Text> 
+            </View> 
+          </View> 
 
           {/* Search Section */}
-          <View style={[styles.searchSection, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.searchContainer}>
-              <Ionicons name="camera-outline" size={24} color="#ffffff" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Ask anything about bible..."
-                placeholderTextColor="#888888"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                selectionColor="#6366f1"
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="send"
-                onSubmitEditing={handleSearch}
-              />
-              <TouchableOpacity 
-                style={[styles.micButton, searchQuery.trim() ? styles.sendButton : null]} 
-                onPress={searchQuery.trim() ? handleSearch : undefined}
-              >
-                <Ionicons 
-                  name={searchQuery.trim() ? "send" : "mic-outline"} 
-                  size={24} 
-                  color={searchQuery.trim() ? "#6366f1" : "#ffffff"} 
-                />
-              </TouchableOpacity>
+          <View style={[styles.searchSection, { paddingBottom: insets.bottom + 20 }]}>  
+            <View style={styles.searchContainer}>  
+              <Ionicons name="camera-outline" size={24} color="#ffffff" style={styles.searchIcon} />  
+              <TextInput  
+                style={styles.searchInput}  
+                placeholder="Ask anything about bible..."  
+                placeholderTextColor="#888888"  
+                value={searchQuery}  
+                onChangeText={setSearchQuery}  
+                selectionColor="#6366f1"  
+                autoCorrect={false}  
+                autoCapitalize="none"  
+                returnKeyType="send"  
+                onSubmitEditing={handleSearch}  
+              />  
+              <TouchableOpacity   
+                style={[styles.micButton, searchQuery.trim() ? styles.sendButton : null]}   
+                onPress={searchQuery.trim() ? handleSearch : undefined}  
+              >  
+                <Ionicons   
+                  name={searchQuery.trim() ? "send" : "mic-outline"}   
+                  size={24}   
+                  color={searchQuery.trim() ? "#6366f1" : "#ffffff"}   
+                />  
+              </TouchableOpacity>  
             </View>
+            {/* Groq LLM Response Card */}
+            {loading && (
+              <View style={{ marginTop: 24, alignItems: 'center' }}>
+                <Text style={{ color: '#6366f1', fontSize: 16 }}>Thinking...</Text>
+              </View>
+            )}
+            {error && (
+              <View style={{ marginTop: 24, alignItems: 'center' }}>
+                <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
+              </View>
+            )}
+            {response && response.answer && (
+              <View style={{
+                backgroundColor: '#374151',
+                borderRadius: 14,
+                padding: 18,
+                marginTop: 24,
+                shadowColor: '#000',
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                elevation: 4,
+              }}>
+                <Text style={{ color: '#ffffff', fontSize: 17, marginBottom: 8 }}>{response.answer}</Text>
+                {response.references && response.references.length > 0 && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={{ color: '#6366f1', fontWeight: '600', marginBottom: 4 }}>References:</Text>
+                    {response.references.map((ref, idx) => (
+                      <Text key={idx} style={{ color: '#e5e7eb', fontSize: 15 }}>{ref}</Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </LinearGradient>
       </KeyboardAvoidingView>
@@ -120,6 +173,37 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  crossContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+    pointerEvents: 'none',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  crossVertical: {
+    position: 'absolute',
+    top: '22%', // Move up a little
+    bottom: '36%', // Move up a little
+    left: '50%',
+    width: 6,
+    marginLeft: -3,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderRadius: 3,
+  },
+  crossHorizontal: {
+    position: 'absolute',
+    left: '32%', // Make horizontal line shorter
+    right: '32%',
+    top: '32%', // Move horizontal line up
+    height: 6,
+    marginTop: -3,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderRadius: 3,
+  },
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a',
@@ -194,8 +278,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#3a3a3c',
     borderRadius: 30,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 56,
     height: 60,
     shadowColor: '#000',
     shadowOffset: {
@@ -220,8 +305,10 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   micButton: {
-    marginLeft: 16,
-    padding: 4,
+    marginLeft: 8,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButton: {
     backgroundColor: 'rgba(99, 102, 241, 0.1)',

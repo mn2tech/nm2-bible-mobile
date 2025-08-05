@@ -1,9 +1,5 @@
-import Groq from 'groq-sdk';
-
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: process.env.EXPO_PUBLIC_GROQ_API_KEY || 'your-groq-api-key-here',
-});
+// Set your backend API URL here
+const API_URL = 'http://192.168.1.159:4000/api/groq'; // Updated to your computer's IP address
 
 export interface BibleQueryResponse {
   answer: string;
@@ -25,44 +21,18 @@ export class GroqBibleService {
 
   async queryBible(question: string): Promise<BibleQueryResponse> {
     try {
-      const prompt = `You are a knowledgeable Bible AI assistant. Answer the following question about the Bible with accuracy and provide relevant biblical references when possible. Keep responses concise but informative.
-
-Question: ${question}
-
-Please provide:
-1. A clear, helpful answer
-2. Relevant Bible verses or references if applicable
-3. Context when necessary
-
-Answer:`;
-
-      const completion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful Bible AI assistant with deep knowledge of Christian scripture. Provide accurate, respectful, and informative responses about biblical topics, verses, and Christian theology.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        model: 'llama3-8b-8192', // Using Llama 3 8B model
-        temperature: 0.7,
-        max_tokens: 1024,
-        top_p: 1,
-        stream: false,
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question }),
       });
-
-      const response = completion.choices[0]?.message?.content || 'No response received';
-      
-      // Extract references (simple regex to find Bible references)
-      const referencePattern = /\b\d?\s?[A-Z][a-z]+\s+\d+:\d+(-\d+)?\b/g;
-      const references = response.match(referencePattern) || [];
-
+      const data = await res.json();
       return {
-        answer: response,
-        references: references,
+        answer: data.answer,
+        references: data.references || [],
+        error: data.error,
       };
     } catch (error) {
       console.error('Groq API Error:', error);
@@ -75,31 +45,18 @@ Answer:`;
 
   async getBibleVerse(reference: string): Promise<BibleQueryResponse> {
     try {
-      const prompt = `Please provide the Bible verse for ${reference} in a clear, readable format. Include the book, chapter, verse, and the text itself.`;
-
-      const completion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a Bible verse lookup assistant. Provide accurate Bible verses in a clear format.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        model: 'llama3-8b-8192',
-        temperature: 0.3,
-        max_tokens: 512,
-        top_p: 1,
-        stream: false,
+      const res = await fetch(`${API_URL}/verse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference }),
       });
-
-      const response = completion.choices[0]?.message?.content || 'Verse not found';
-
+      const data = await res.json();
       return {
-        answer: response,
-        references: [reference],
+        answer: data.answer,
+        references: data.references || [reference],
+        error: data.error,
       };
     } catch (error) {
       console.error('Groq API Error:', error);
@@ -112,30 +69,17 @@ Answer:`;
 
   async getDailyReading(): Promise<BibleQueryResponse> {
     try {
-      const prompt = `Suggest a meaningful Bible verse or short passage for daily reflection today. Include the reference and a brief inspirational thought about its meaning.`;
-
-      const completion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a devotional assistant providing daily Bible readings with inspirational insights.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        model: 'llama3-8b-8192',
-        temperature: 0.8,
-        max_tokens: 512,
-        top_p: 1,
-        stream: false,
+      const res = await fetch(`${API_URL}/daily`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-
-      const response = completion.choices[0]?.message?.content || 'No daily reading available';
-
+      const data = await res.json();
       return {
-        answer: response,
+        answer: data.answer,
+        references: data.references || [],
+        error: data.error,
       };
     } catch (error) {
       console.error('Groq API Error:', error);
