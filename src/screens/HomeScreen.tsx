@@ -9,25 +9,30 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import GroqBibleService, { BibleQueryResponse } from '../services/groqService';
 
-const { width, height } = Dimensions.get('window');
-const isSmallScreen = height < 700;
-const isVerySmallScreen = height < 650;
+import GroqBibleService from '../services/groqService';
 
-export default function HomeScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [response, setResponse] = useState<BibleQueryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+
+function HomeScreen() {
+  interface BibleResponse {
+    answer: string;
+    references?: string[];
+  }
+
+  const { width, height } = Dimensions.get('window');
+  const isSmallScreen = height < 700;
+  const isVerySmallScreen = height < 650;
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [response, setResponse] = useState<BibleResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-
-  // Calculate available space
   const tabBarHeight = 50 + insets.bottom;
   const headerHeight = 44 + insets.top;
   const availableHeight = height - tabBarHeight - headerHeight;
@@ -51,126 +56,122 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}> 
-      {/* Jesus cross background */}
-      <View pointerEvents="none" style={styles.crossContainer}>
-        {/* Vertical line (center) */}
-        <View style={styles.crossVertical} />
-        {/* Horizontal line (center) */}
-        <View style={styles.crossHorizontal} />
-      </View>
+    <View style={[styles.container, { paddingTop: insets.top, flex: 1 }]}> 
+      {/* Jesus cross background - hide when response is shown */}
+      {!(response && response.answer) && (
+        <View pointerEvents="none" style={styles.crossContainer}>
+          {/* Vertical line (center) */}
+          <View style={styles.crossVertical} />
+          {/* Horizontal line (center) */}
+          <View style={styles.crossHorizontal} />
+        </View>
+      )}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        style={[styles.keyboardView, { flex: 1 }]}
       >
         <LinearGradient
           colors={['#1a1a1a', '#0f1419']}
-          style={styles.gradient}
+          style={[styles.gradient, { flex: 1 }]}
         >
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.profileButton}>
               <Ionicons name="person-circle-outline" size={28} color="#ffffff" />
             </TouchableOpacity>
-            
             <Text style={styles.headerTitle}>NM2BibleAI</Text>
-            
             <TouchableOpacity style={styles.shareButton}>
               <Ionicons name="share-outline" size={28} color="#ffffff" />
             </TouchableOpacity>
           </View>
-
-          {/* Main Content */}
-          <View style={[styles.mainContent, { height: availableHeight - 140 }]}> 
-            {/* Logo/Icon */}
-            <View style={styles.logoContainer}> 
-              <Ionicons  
-                name="book"  
-                size={isCompactMode ? 35 : isVerySmallScreen ? 40 : isSmallScreen ? 45 : 50}  
-                color="#6366f1"  
-              /> 
-            </View> 
-
-            {/* Tagline */}
-            <View style={styles.taglineContainer}> 
-              <Text style={[styles.taglineText, {  
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
-              }]}>Where</Text> 
-              <Text style={[styles.taglineText, {  
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
-              }]}>wisdom</Text> 
-              <Text style={[styles.taglineText, {  
-                fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
-              }]}>begins</Text> 
-            </View> 
-          </View> 
-
-          {/* Search Section */}
-          <View style={[styles.searchSection, { paddingBottom: insets.bottom + 20 }]}>  
-            <View style={styles.searchContainer}>  
-              <Ionicons name="camera-outline" size={24} color="#ffffff" style={styles.searchIcon} />  
-              <TextInput  
-                style={styles.searchInput}  
-                placeholder="Ask anything about bible..."  
-                placeholderTextColor="#888888"  
-                value={searchQuery}  
-                onChangeText={setSearchQuery}  
-                selectionColor="#6366f1"  
-                autoCorrect={false}  
-                autoCapitalize="none"  
-                returnKeyType="send"  
-                onSubmitEditing={handleSearch}  
-              />  
-              <TouchableOpacity   
-                style={[styles.micButton, searchQuery.trim() ? styles.sendButton : null]}   
-                onPress={searchQuery.trim() ? handleSearch : undefined}  
-              >  
-                <Ionicons   
-                  name={searchQuery.trim() ? "send" : "mic-outline"}   
-                  size={24}   
-                  color={searchQuery.trim() ? "#6366f1" : "#ffffff"}   
-                />  
-              </TouchableOpacity>  
+          {/* Main Content: logo/tagline only if no response */}
+          {!(response && response.answer) && (
+            <View style={[styles.mainContent, { height: availableHeight - 140 }]}> 
+              {/* Logo/Icon */}
+              <View style={styles.logoContainer}> 
+                <Ionicons  
+                  name="book"  
+                  size={isCompactMode ? 35 : isVerySmallScreen ? 40 : isSmallScreen ? 45 : 50}  
+                  color="#6366f1"  
+                /> 
+              </View>
+              {/* Tagline */}
+              <View style={styles.taglineContainer}> 
+                <Text style={[styles.taglineText, {  
+                  fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+                }]}>Where</Text> 
+                <Text style={[styles.taglineText, {  
+                  fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+                }]}>wisdom</Text> 
+                <Text style={[styles.taglineText, {  
+                  fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+                }]}>begins</Text> 
+              </View>
             </View>
-            {/* Groq LLM Response Card */}
-            {loading && (
-              <View style={{ marginTop: 24, alignItems: 'center' }}>
-                <Text style={{ color: '#6366f1', fontSize: 16 }}>Thinking...</Text>
+          )}
+          {/* Search Section and Response Feed */}
+          <View style={{ flex: 1 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+              {loading && (
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ color: '#6366f1', fontSize: 16 }}>Thinking...</Text>
+                </View>
+              )}
+              {error && (
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
+                </View>
+              )}
+              {response && response.answer && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 17, marginBottom: 8 }}>{response.answer}</Text>
+                  {response.references && response.references.length > 0 && (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={{ color: '#6366f1', fontWeight: '600', marginBottom: 4 }}>References:</Text>
+                      {response.references.map((ref: string, idx: number) => (
+                        <Text key={idx} style={{ color: '#e5e7eb', fontSize: 15 }}>{ref}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+            {/* Search input always visible at the bottom */}
+            <View style={[styles.searchSection, { paddingBottom: insets.bottom + 20 }]}>  
+              <View style={styles.searchContainer}>  
+                <Ionicons name="camera-outline" size={24} color="#ffffff" style={styles.searchIcon} />  
+                <TextInput  
+                  style={styles.searchInput}  
+                  placeholder="Ask anything about bible..."  
+                  placeholderTextColor="#888888"  
+                  value={searchQuery}  
+                  onChangeText={setSearchQuery}  
+                  selectionColor="#6366f1"  
+                  autoCorrect={false}  
+                  autoCapitalize="none"  
+                  returnKeyType="send"  
+                  onSubmitEditing={handleSearch}  
+                />  
+                <TouchableOpacity   
+                  style={[styles.micButton, searchQuery.trim() ? styles.sendButton : null]}   
+                  onPress={searchQuery.trim() ? handleSearch : undefined}  
+                >  
+                  <Ionicons   
+                    name={searchQuery.trim() ? "send" : "mic-outline"}   
+                    size={24}   
+                    color={searchQuery.trim() ? "#6366f1" : "#ffffff"}   
+                  />  
+                </TouchableOpacity>  
               </View>
-            )}
-            {error && (
-              <View style={{ marginTop: 24, alignItems: 'center' }}>
-                <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
-              </View>
-            )}
-            {response && response.answer && (
-              <View style={{
-                backgroundColor: '#374151',
-                borderRadius: 14,
-                padding: 18,
-                marginTop: 24,
-                shadowColor: '#000',
-                shadowOpacity: 0.12,
-                shadowRadius: 6,
-                elevation: 4,
-              }}>
-                <Text style={{ color: '#ffffff', fontSize: 17, marginBottom: 8 }}>{response.answer}</Text>
-                {response.references && response.references.length > 0 && (
-                  <View style={{ marginTop: 10 }}>
-                    <Text style={{ color: '#6366f1', fontWeight: '600', marginBottom: 4 }}>References:</Text>
-                    {response.references.map((ref, idx) => (
-                      <Text key={idx} style={{ color: '#e5e7eb', fontSize: 15 }}>{ref}</Text>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
+            </View>
           </View>
         </LinearGradient>
       </KeyboardAvoidingView>
     </View>
   );
 }
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   crossContainer: {
@@ -193,6 +194,11 @@ const styles = StyleSheet.create({
     marginLeft: -3,
     backgroundColor: 'rgba(255,255,255,0.13)',
     borderRadius: 3,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
+    elevation: 16,
   },
   crossHorizontal: {
     position: 'absolute',
@@ -203,6 +209,11 @@ const styles = StyleSheet.create({
     marginTop: -3,
     backgroundColor: 'rgba(255,255,255,0.13)',
     borderRadius: 3,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
+    elevation: 16,
   },
   container: {
     flex: 1,
