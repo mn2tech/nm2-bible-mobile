@@ -57,6 +57,45 @@ function HomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, flex: 1 }]}> 
+      {/* Subtle grid background */}
+      {!(response && response.answer) && (
+        <View pointerEvents="none" style={styles.gridBackground}>
+          {/* Stained glass effect: grid of rectangles with subtle color variations */}
+          {(() => {
+            const rows = 12;
+            const cols = 8;
+            const colors = [
+              'rgba(99,102,241,0.07)', // indigo
+              'rgba(255,255,255,0.04)', // white
+              'rgba(99,102,241,0.10)', // indigo accent
+              'rgba(255,255,255,0.02)', // faint white
+              'rgba(99,102,241,0.05)', // faint indigo
+            ];
+            let panels = [];
+            for (let row = 0; row < rows; row++) {
+              for (let col = 0; col < cols; col++) {
+                const color = colors[(row * cols + col) % colors.length];
+                panels.push(
+                  <View
+                    key={`panel-${row}-${col}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${(col) * 100 / cols}%`,
+                      top: `${(row) * 100 / rows}%`,
+                      width: `${100 / cols}%`,
+                      height: `${100 / rows}%`,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.04)',
+                      backgroundColor: color,
+                    }}
+                  />
+                );
+              }
+            }
+            return panels;
+          })()}
+        </View>
+      )}
       {/* Jesus cross background - hide when response is shown */}
       {!(response && response.answer) && (
         <View pointerEvents="none" style={styles.crossContainer}>
@@ -71,7 +110,7 @@ function HomeScreen() {
         style={[styles.keyboardView, { flex: 1 }]}
       >
         <LinearGradient
-          colors={['#1a1a1a', '#0f1419']}
+          colors={['#181a1b', '#232627']} // Perplexity-style gradient
           style={[styles.gradient, { flex: 1 }]}
         >
           {/* Header */}
@@ -102,10 +141,13 @@ function HomeScreen() {
                 }]}>Where</Text> 
                 <Text style={[styles.taglineText, {  
                   fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
-                }]}>wisdom</Text> 
+                }]}>True</Text> 
                 <Text style={[styles.taglineText, {  
                   fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
-                }]}>begins</Text> 
+                }]}>Wisdom</Text> 
+                <Text style={[styles.taglineText, {  
+                  fontSize: isCompactMode ? 20 : isVerySmallScreen ? 24 : isSmallScreen ? 26 : 28  
+                }]}>Begins</Text> 
               </View>
             </View>
           )}
@@ -174,6 +216,14 @@ function HomeScreen() {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
+  gridBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10, // bring grid above all for debugging
+  },
   crossContainer: {
     position: 'absolute',
     top: 0,
@@ -217,7 +267,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#181a1b', // Perplexity-style background
   },
   keyboardView: {
     flex: 1,
@@ -269,13 +319,18 @@ const styles = StyleSheet.create({
   },
   taglineContainer: {
     alignItems: 'center',
+    marginTop: 60,
   },
   taglineText: {
     fontWeight: '300',
-    color: '#9ca3af',
+    color: 'rgba(255,255,255,0.22)',
     textAlign: 'center',
     lineHeight: 32,
     marginBottom: 3,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(255,255,255,0.32)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 12,
   },
   searchSection: {
     position: 'absolute',

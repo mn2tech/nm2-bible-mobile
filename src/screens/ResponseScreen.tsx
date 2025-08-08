@@ -74,28 +74,45 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
       useNativeDriver: true,
     }).start();
 
-    // Typing animation
-    let currentIndex = 0;
-    const typingInterval = setInterval(() => {
-      if (currentIndex < answer.length) {
-        setDisplayedText(answer.substring(0, currentIndex + 1));
-        currentIndex++;
-        // Auto-scroll to bottom
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 50);
-      } else {
-        setIsTyping(false);
-        clearInterval(typingInterval);
+
+    // Streaming response logic
+    setDisplayedText('');
+    setIsTyping(true);
+    let isMounted = true;
+    // Scroll to bottom immediately as soon as streaming starts
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+    GroqBibleService.streamBibleAnswer(
+      question,
+      (partial) => {
+        if (isMounted) {
+          setDisplayedText(partial);
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 50);
+        }
+      },
+      (full) => {
+        if (isMounted) {
+          setIsTyping(false);
+          setMessages([{ question, answer: full, references, images }]);
+        }
+      },
+      (err) => {
+        if (isMounted) {
+          setDisplayedText('Sorry, I encountered an error while processing your question. Please try again.');
+          setIsTyping(false);
+        }
       }
-    }, 30);
+    );
 
     return () => {
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
-      clearInterval(typingInterval);
+      isMounted = false;
     };
-  }, [answer, fadeAnim]);
+  }, [question, fadeAnim]);
 
   const handleShare = () => {
     // Add share functionality here
@@ -109,47 +126,47 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
 
   const handleFollowUp = async () => {
     if (!followUpQuery.trim()) return;
-    setIsTyping(true);
-    const followUp = followUpQuery.trim();
-    setFollowUpQuery('');
-    try {
-      const response = await GroqBibleService.queryBible(followUp);
-      setMessages((prev) => [
-        ...prev,
-        {
-          question: followUp,
-          answer: response.answer,
-          references: response.references,
-          images: [], // You can add image support here if needed
-        },
-      ]);
-      // Animate typing for new message
-      let currentIndex = 0;
-      setDisplayedText('');
-      const typingInterval = setInterval(() => {
-        if (currentIndex < response.answer.length) {
-          setDisplayedText(response.answer.substring(0, currentIndex + 1));
-          currentIndex++;
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 50);
-        } else {
-          setIsTyping(false);
-          clearInterval(typingInterval);
-        }
-      }, 30);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          question: followUp,
-          answer: 'Sorry, there was an error. Please try again.',
-          references: [],
-          images: [],
-        },
-      ]);
-      setIsTyping(false);
-    }
+          {!isTyping && (
+            <Animated.View
+              style={[
+                styles.floatingSearchContainer,
+                {
+                  opacity: fadeAnim,
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: insets.bottom,
+                  zIndex: 100,
+                },
+              ]}
+            >
+              <View style={[styles.floatingSearchBar, styles.floatingSearchBarGlow]}>
+                <Ionicons name="attach-outline" size={20} color="#9ca3af" style={styles.attachIcon} />
+                <TextInput
+                  style={styles.floatingSearchInput}
+                  placeholder="Ask follow-up..."
+                  placeholderTextColor="#6b7280"
+                  multiline
+                  value={followUpQuery}
+                  onChangeText={setFollowUpQuery}
+                  onSubmitEditing={handleFollowUp}
+                  autoFocus={true}
+                />
+                {followUpQuery.trim() ? (
+                  <TouchableOpacity 
+                    style={styles.sendButton} 
+                    onPress={handleFollowUp}
+                  >
+                    <Ionicons name="send" size={18} color="#6366f1" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.micButton}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={22} color="#9ca3af" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Animated.View>
+          )}
   };
 
   // Main UI return block
@@ -162,12 +179,13 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={[styles.backButton, {display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 48, minHeight: 48, marginRight: 8}]}
             onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            <Ionicons name="arrow-back" size={28} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bible AI</Text>
+          <Text style={styles.headerTitle}>NM2BibleAI</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
               <Ionicons name="copy-outline" size={22} color="#ffffff" />
@@ -183,6 +201,23 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           {/* Content */}
+          {/* Show the latest question at the very top, outside the scrollview */}
+          <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+            <Text style={{
+              color: '#e5e7eb',
+              fontSize: 18,
+              fontWeight: '600',
+              backgroundColor: 'rgba(99,102,241,0.10)',
+              borderRadius: 16,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              overflow: 'hidden',
+              textAlign: 'center',
+              maxWidth: '90%',
+            }}>
+              {messages[messages.length - 1]?.question}
+            </Text>
+          </View>
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}> 
             <ScrollView
               ref={scrollViewRef}
@@ -209,7 +244,12 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
                         <Ionicons name="sparkles" size={20} color="#ffffff" />
                       </LinearGradient>
                     </View>
-                    <View style={styles.responseBubble}>
+                    <LinearGradient
+                      colors={["#4f46e5", "#6366f1", "#374151"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.responseBubble}
+                    >
                       {/* Image Gallery */}
                       {!isTyping && msg.images && msg.images.length > 0 && (
                         <ScrollView
@@ -303,7 +343,34 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
                           </TouchableOpacity>
                         </View>
                       )}
-                    </View>
+                      {/* Follow-up suggestions (static for now) */}
+                      {!isTyping && idx === messages.length - 1 && (
+                        <View style={{ marginTop: 24 }}>
+                          {[
+                            "Historical accounts of Jesus' life",
+                            'Jesus in Jewish tradition and law',
+                            "Significance of Jesus' crucifixion",
+                            "Jesus' teachings in the Gospels",
+                            'Influence of Jesus on Christian theology',
+                          ].map((suggestion, sIdx) => (
+                            <TouchableOpacity
+                              key={sIdx}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 16,
+                                borderBottomWidth: sIdx < 4 ? 1 : 0,
+                                borderBottomColor: '#23272f',
+                              }}
+                              onPress={() => setFollowUpQuery(suggestion)}
+                            >
+                              <Ionicons name="return-down-forward" size={18} color="#9ca3af" style={{ marginRight: 12 }} />
+                              <Text style={{ color: '#e5e7eb', fontSize: 16 }}>{suggestion}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </LinearGradient>
                   </View>
                 </React.Fragment>
               ))}
@@ -420,10 +487,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#374151',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    padding: 8,
+    borderRadius: 24,
+    marginRight: 8,
+    backgroundColor: 'rgba(99,102,241,0.15)',
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    minWidth: 40,
+    minHeight: 40,
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 20,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+    cursor: 'pointer',
   },
   headerTitle: {
     fontSize: 18,

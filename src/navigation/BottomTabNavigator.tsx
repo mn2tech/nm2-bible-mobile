@@ -6,6 +6,7 @@ import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import ReadingScreen from '../screens/ReadingScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -26,6 +27,8 @@ export default function BottomTabNavigator() {
             iconName = focused ? 'sparkles' : 'sparkles-outline';
           } else if (route.name === 'Favorites') {
             iconName = focused ? 'wifi' : 'wifi-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
           } else {
             iconName = 'help-outline';
           }
@@ -55,6 +58,7 @@ export default function BottomTabNavigator() {
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Reading" component={ReadingScreen} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

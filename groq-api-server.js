@@ -12,6 +12,47 @@ const groq = new Groq({
   apiKey: process.env.EXPO_PUBLIC_GROQ_API_KEY,
 });
 
+// Streaming endpoint for real-time responses
+app.post('/api/groq/stream', async (req, res) => {
+  const { question } = req.body;
+  if (!question) {
+    res.status(400).write('Missing question');
+    return res.end();
+  }
+  try {
+    const prompt = `You are a knowledgeable Bible AI assistant. Answer the following question about the Bible with accuracy and provide relevant biblical references when possible. Keep responses concise but informative.\n\nQuestion: ${question}\n\nPlease provide:\n1. A clear, helpful answer\n2. Relevant Bible verses or references if applicable\n3. Context when necessary\n\nAnswer:`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.flushHeaders && res.flushHeaders();
+
+    let fullText = '';
+    const stream = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: 'You are a helpful Bible AI assistant with deep knowledge of Christian scripture. Provide accurate, respectful, and informative responses about biblical topics, verses, and Christian theology.' },
+        { role: 'user', content: prompt },
+      ],
+      model: 'llama3-8b-8192',
+      temperature: 0.7,
+      max_tokens: 1024,
+      top_p: 1,
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices?.[0]?.delta?.content || '';
+      if (content) {
+        fullText += content;
+        res.write(content);
+      }
+    }
+    res.end();
+  } catch (error) {
+    console.error('Groq API Stream Error:', error);
+    res.write('Sorry, I encountered an error while processing your question. Please try again.');
+    res.end();
+  }
+});
+
 app.post('/api/groq', async (req, res) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ answer: '', references: [], error: 'Missing question' });

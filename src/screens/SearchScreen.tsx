@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
+import { PanResponder, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SearchScreen() {
@@ -30,13 +31,38 @@ export default function SearchScreen() {
     },
   ]);
 
+  // PanResponder and Animated for draggable search bar
+  const pan = useRef(new Animated.ValueXY()).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: (pan.x as any).__getValue(),
+          y: (pan.y as any).__getValue(),
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([
+        null,
+        { dx: pan.x, dy: pan.y },
+      ], { useNativeDriver: false }),
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+      },
+    })
+  ).current;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Search Scripture</Text>
       </View>
 
-      <View style={styles.searchContainer}>
+      <Animated.View
+        style={[styles.searchContainer, { transform: pan.getTranslateTransform() }]}
+        {...panResponder.panHandlers}
+      >
         <Ionicons name="search-outline" size={20} color="#6b7280" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
@@ -45,7 +71,7 @@ export default function SearchScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-      </View>
+      </Animated.View>
 
       <ScrollView style={styles.resultsContainer}>
         {searchResults.map((result) => (
@@ -80,8 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
+    // Removed marginHorizontal and marginBottom for draggable
   },
   searchIcon: {
     marginRight: 12,

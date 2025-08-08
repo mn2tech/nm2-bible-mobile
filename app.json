@@ -13,9 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.nm2tech.nm2bibleai",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.nm2tech.nm2bibleai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
