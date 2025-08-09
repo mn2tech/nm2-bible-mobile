@@ -22,39 +22,49 @@ export class GroqBibleService {
   }
 
   /**
-   * Streams a Bible answer from the backend. Callback receives partial answer as it arrives.
-   * Returns a promise that resolves when the stream is complete.
+   * Streams a Bible answer from the backend over a WebSocket connection.
+   * The `onData` callback receives incremental chunks as they arrive.
+   * Returns a cleanup function that should be called to close the
+   * connection when the component unmounts.
    */
-  async streamBibleAnswer(
+  streamBibleAnswer(
     question: string,
     onData: (partial: string) => void,
     onDone?: (full: string) => void,
     onError?: (err: any) => void
-  ): Promise<void> {
-    try {
-      const res = await fetch(API_URL + '/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question }),
-      });
-      if (!res.body) throw new Error('No response body for streaming');
-      const reader = res.body.getReader();
-      let decoder = new TextDecoder();
-      let fullText = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        fullText += chunk;
-        onData(fullText);
-      }
+  ): () => void {
+    // Convert http(s):// to ws(s):// for WebSocket endpoint
+    const wsUrl = API_URL.replace(/^http/, 'ws') + '/stream';
+    const socket = new WebSocket(wsUrl);
+    let fullText = '';
+
+    socket.onopen = () => {
+      // Send the question to initiate streaming on the backend
+      socket.send(JSON.stringify({ question }));
+    };
+
+    socket.onmessage = (event) => {
+      const chunk = typeof event.data === 'string' ? event.data : '';
+      fullText += chunk;
+      onData(fullText);
+    };
+
+    socket.onerror = (event) => {
+      console.error('Groq API Stream Error:', event);
+      if (onError) onError(event);
+      socket.close();
+    };
+
+    socket.onclose = () => {
       if (onDone) onDone(fullText);
-    } catch (error) {
-      console.error('Groq API Stream Error:', error);
-      if (onError) onError(error);
-    }
+    };
+
+    // Return cleanup function
+    return () => {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close();
+      }
+    };
   }
 
   async queryBible(question: string): Promise<BibleQueryResponse> {

@@ -78,39 +78,32 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
     // Streaming response logic
     setDisplayedText('');
     setIsTyping(true);
-    let isMounted = true;
     // Scroll to bottom immediately as soon as streaming starts
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
-    GroqBibleService.streamBibleAnswer(
+    const cleanupStream = GroqBibleService.streamBibleAnswer(
       question,
       (partial) => {
-        if (isMounted) {
-          setDisplayedText(partial);
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 50);
-        }
+        setDisplayedText(partial);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 50);
       },
       (full) => {
-        if (isMounted) {
-          setIsTyping(false);
-          setMessages([{ question, answer: full, references, images }]);
-        }
+        setIsTyping(false);
+        setMessages([{ question, answer: full, references, images }]);
       },
       (err) => {
-        if (isMounted) {
-          setDisplayedText('Sorry, I encountered an error while processing your question. Please try again.');
-          setIsTyping(false);
-        }
+        setDisplayedText('Sorry, I encountered an error while processing your question. Please try again.');
+        setIsTyping(false);
       }
     );
 
     return () => {
       keyboardDidShowListener?.remove();
       keyboardDidHideListener?.remove();
-      isMounted = false;
+      cleanupStream && cleanupStream();
     };
   }, [question, fadeAnim]);
 
