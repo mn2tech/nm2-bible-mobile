@@ -1,7 +1,9 @@
 {
   "expo": {
+    "owner": "nm2tech",
     "name": "NM2BibleAI",
     "slug": "nm2-bibleai",
+    "scheme": "nm2bibleai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,6 +28,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3e7a9bca-dc6e-49e3-848c-473601f477d1"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3e7a9bca-dc6e-49e3-848c-473601f477d1"
     }
   }
 }

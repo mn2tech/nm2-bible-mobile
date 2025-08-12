@@ -1,5 +1,5 @@
 // Set your backend API URL here
-const API_URL = 'http://192.168.1.159:4000/api/groq'; // Updated to your computer's IP address
+const API_URL = 'http://192.168.1.151:4000/api/groq'; // Updated to your current computer's IP address
 
 export interface BibleQueryResponse {
   question: string;

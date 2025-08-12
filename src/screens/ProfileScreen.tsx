@@ -1,29 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
 
+type GoogleUser = {
+  picture?: string;
+  name?: string;
+  email?: string;
+};
+
 export default function ProfileScreen() {
-  const [user, setUser] = useState<any>(null);
+  // Log the actual redirect URI used by AuthSession (for Google Cloud Console setup)
+  // For local development reference (not for Google OAuth):
+  console.log('Local dev URI:', 'exp://192.168.1.151:8081');
+  console.log('Redirect URI:', makeRedirectUri({ useProxy: true }));
+  const [user, setUser] = useState<GoogleUser | null>(null);
+
+  // Provide your OAuth client ID via env or replace the fallback string.
+  // For Expo Go dev, useProxy: true makes redirects easy.
+  // Use the correct redirect URI for Expo Go and standalone builds
+  // For Expo Go, this will be https://auth.expo.io/@nm2tech/nm2-bibleai
+  // For standalone/dev client, this will be nm2bibleai://
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: 'YOUR_EXPO_CLIENT_ID',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID',
-    webClientId: 'YOUR_WEB_CLIENT_ID',
+    clientId: '1046280433703-1k5vca96tcktah838dr7ksr48lv3uuv1.apps.googleusercontent.com',
+    redirectUri: makeRedirectUri({ useProxy: true }),
+    scopes: ['profile', 'email'],
   });
 
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${authentication?.accessToken}` },
-      })
-        .then(res => res.json())
-        .then(data => setUser(data));
-    }
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (response?.type === 'success' && response.authentication?.accessToken) {
+        try {
+          const res = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+            headers: { Authorization: `Bearer ${response.authentication.accessToken}` },
+          });
+          const data = await res.json();
+          setUser(data);
+        } catch (e) {
+          console.warn('Failed to fetch Google profile:', e);
+        }
+      }
+    };
+    fetchProfile();
   }, [response]);
 
   return (
@@ -31,13 +53,13 @@ export default function ProfileScreen() {
       <Text style={styles.title}>Profile</Text>
       {user ? (
         <View style={styles.profileBox}>
-          <Image source={{ uri: user.picture }} style={styles.avatar} />
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.email}>{user.email}</Text>
+          {!!user.picture && <Image source={{ uri: user.picture }} style={styles.avatar} />}
+          {!!user.name && <Text style={styles.name}>{user.name}</Text>}
+          {!!user.email && <Text style={styles.email}>{user.email}</Text>}
         </View>
       ) : (
         <TouchableOpacity
-          style={styles.googleButton}
+          style={[styles.googleButton, !request && { opacity: 0.6 }]}
           onPress={() => promptAsync()}
           disabled={!request}
         >

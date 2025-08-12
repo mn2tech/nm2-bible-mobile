@@ -28,7 +28,11 @@ export default function HomeStackNavigator() {
       }}
     >
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="Response" component={ResponseScreen} />
+      <Stack.Screen 
+        name="Response" 
+        component={ResponseScreen} 
+        options={{ gestureEnabled: false }}
+      />
     </Stack.Navigator>
   );
 }

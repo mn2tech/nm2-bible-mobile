@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  Image
+  Image,
+  PanResponder
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,6 +40,20 @@ interface ResponseScreenProps {
 
 
 export default function ResponseScreen({ route, navigation }: ResponseScreenProps) {
+  // PanResponder for slide-to-go-back gesture (only active when not typing and can go back)
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only activate if not typing, can go back, and horizontal swipe is significant
+        return !isTyping && navigation.canGoBack() && Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 20;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (!isTyping && navigation.canGoBack() && gestureState.dx > 60) {
+          navigation.goBack();
+        }
+      },
+    })
+  ).current;
   const { question, answer, references, images = [] } = route.params;
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
@@ -101,8 +116,10 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
       },
       (err) => {
         if (isMounted) {
-          setDisplayedText('Sorry, I encountered an error while processing your question. Please try again.');
+          const errorMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+          setDisplayedText('Sorry, I encountered an error while processing your question.\n' + errorMsg);
           setIsTyping(false);
+          console.error('GroqBibleService error:', err);
         }
       }
     );
@@ -170,8 +187,11 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
   };
 
   // Main UI return block
+  // Only attach panHandlers if not typing and can go back
+  const panHandlers = !isTyping && navigation.canGoBack() ? panResponder.panHandlers : {};
+
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}> 
+    <SafeAreaView style={[styles.container, { paddingTop: insets.top }]} {...panHandlers}>
       <LinearGradient
         colors={['#1a1a1a', '#0f1419']}
         style={styles.gradient}
