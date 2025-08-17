@@ -1,5 +1,5 @@
 // Set your backend API URL here
-const API_URL = 'http://192.168.1.151:4000/api/groq'; // Updated to your current computer's IP address
+const API_URL = 'http://192.168.1.159:4000/api/groq'; // Updated to your current computer's IP address
 
 export interface BibleQueryResponse {
   question: string;
@@ -131,25 +131,50 @@ export class GroqBibleService {
     }
   }
 
-  async getDailyReading(): Promise<BibleQueryResponse> {
+  async getDailyReading(lang?: string): Promise<BibleQueryResponse> {
     try {
-      const res = await fetch(`${API_URL}/daily`, {
+      // Append optional lang query param if provided. Backend may ignore it if unsupported.
+      const url = lang ? `${API_URL}/daily?lang=${encodeURIComponent(lang)}` : `${API_URL}/daily`;
+      const res = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      const data = await res.json();
+      if (!res.ok) {
+        // Network or server error - format status text more defensively (statusText may be empty on some platforms)
+        const statusInfo = res.statusText ? `${res.status} ${res.statusText}` : `${res.status}`;
+        return {
+          question: 'daily',
+          answer: `Sorry, the server returned an error (${statusInfo}). Please check your connection and try again.`,
+          error: `HTTP ${statusInfo}`,
+        };
+      }
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        return {
+          question: 'daily',
+          answer: 'Sorry, the server response could not be parsed. Please try again later.',
+          error: jsonErr instanceof Error ? jsonErr.message : 'Unknown JSON error',
+        };
+      }
       let answer = data.answer;
       let isTrueWisdom = false;
       if (typeof answer === 'string' && /where wisdom begins/i.test(answer)) {
         answer = answer.replace(/where wisdom begins/gi, 'Where True Wisdom Begins');
         isTrueWisdom = true;
       }
-      // Add the question at the top of the answer
-      if (typeof answer === 'string') {
-        answer = `Q: daily\n\n${answer}`;
+      if (!answer) {
+        return {
+          question: 'daily',
+          answer: 'Sorry, no daily reading was returned by the server.',
+          error: 'No answer field in response',
+        };
       }
+      // Add the question at the top of the answer
+      answer = `Q: daily\n\n${answer}`;
       return {
         question: 'daily',
         answer,
@@ -161,7 +186,7 @@ export class GroqBibleService {
       console.error('Groq API Error:', error);
       return {
         question: 'daily',
-        answer: 'Sorry, I could not generate a daily reading at this time.',
+        answer: 'Sorry, could not connect to the server. Please check your network and try again.',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

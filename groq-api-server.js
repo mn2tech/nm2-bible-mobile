@@ -79,6 +79,31 @@ app.post('/api/groq', async (req, res) => {
   }
 });
 
+// GET /api/groq/daily - returns a short daily reading
+app.get('/api/groq/daily', async (req, res) => {
+  try {
+    const prompt = `Provide a short daily Bible reading: one brief passage (1-3 verses) and a one-sentence devotional reflection. Keep it concise.`;
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: 'You are a helpful Bible AI assistant. Provide accurate, respectful daily readings.' },
+        { role: 'user', content: prompt },
+      ],
+      model: 'llama3-8b-8192',
+      temperature: 0.7,
+      max_tokens: 512,
+      top_p: 1,
+      stream: false,
+    });
+    const response = completion.choices[0]?.message?.content || 'No response received';
+    const referencePattern = /\b\d?\s?[A-Z][a-z]+\s+\d+:\d+(-\d+)?\b/g;
+    const references = response.match(referencePattern) || [];
+    res.json({ answer: response, references });
+  } catch (error) {
+    console.error('Groq API /daily Error:', error);
+    res.status(500).json({ answer: 'Sorry, could not generate a daily reading at this time.', references: [], error: error.message || 'Unknown error' });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Groq API server running on port ${PORT}`);

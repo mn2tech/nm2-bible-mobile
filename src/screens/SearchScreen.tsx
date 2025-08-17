@@ -1,6 +1,16 @@
 
-
-
+import React, { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import groqService from '../services/groqService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -21,22 +31,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#374151',
-    borderRadius: 12,
+    borderRadius: 30,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    minHeight: 56,
+    height: 60,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 0,
   },
-  searchBarAbsolute: {
+  searchSection: {
     position: 'absolute',
-    top: 80,
+    bottom: 75,
     left: 20,
     right: 20,
-    zIndex: 10,
-    width: '90%',
-    alignSelf: 'center',
-    // You can adjust top/left for initial position as needed
+    paddingVertical: 10,
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 16,
+  },
+  micButton: {
+    marginLeft: 8,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButton: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: 12,
   },
   searchInput: {
     flex: 1,
@@ -88,151 +116,140 @@ const styles = StyleSheet.create({
 });
 
 
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
-import { PanResponder, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-
-
-
+// Duplicate imports removed
 export default function SearchScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [response, setResponse] = useState('');
-  const [streamedText, setStreamedText] = useState('');
+  const insets = useSafeAreaInsets();
+  const [reading, setReading] = useState<{ answer: string; references?: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
-  const streamInterval = useRef<NodeJS.Timeout | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [readingSource, setReadingSource] = useState<'remote' | 'cache' | null>(null);
+  
 
-  // Simulate Groq/API call
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
-    setResponse('');
-    setStreamedText('');
-    // Simulate API delay and response
-    setTimeout(() => {
-      let fakeResponse = '';
-      if (searchQuery.toLowerCase().includes('love')) {
-        fakeResponse = 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.';
-      } else if (searchQuery.toLowerCase().includes('strength')) {
-        fakeResponse = 'I can do all this through him who gives me strength.';
-      } else if (searchQuery.toLowerCase().includes('purpose')) {
-        fakeResponse = 'And we know that in all things God works for the good of those who love him, who have been called according to his purpose.';
-      } else {
-        fakeResponse = 'No results found.';
-      }
-      setResponse(fakeResponse);
-      setLoading(false);
-    }, 800);
-  };
-
-  // Typing effect for dynamic response
   useEffect(() => {
-    if (!response) return;
-    setStreamedText('');
-    let i = 0;
-    if (streamInterval.current) clearInterval(streamInterval.current);
-    streamInterval.current = setInterval(() => {
-      if (i < response.length) {
-        setStreamedText((prev) => prev + response[i]);
-        i++;
-      } else {
-        if (streamInterval.current) clearInterval(streamInterval.current);
+    const fetchReading = async () => {
+      setLoading(true);
+      setError(null);
+      setReadingSource(null);
+  const cacheKey = `dailyReading`;
+      // Try to load cached reading first (non-blocking UI)
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.answer) {
+            setReading(parsed);
+            setReadingSource('cache');
+          }
+        }
+      } catch (e) {
+        // ignore cache errors
       }
-    }, 18);
-    return () => {
-      if (streamInterval.current) clearInterval(streamInterval.current);
+      try {
+  const result = await groqService.getDailyReading();
+        // If backend indicates an error, surface a friendly message and keep fallback verses
+        if (result.error) {
+          setError(result.answer || result.error || 'Server returned an error.');
+          // try to keep cached reading (already set above) and mark source
+          if (!reading) {
+            // no cached reading present
+            setReading(null);
+            setReadingSource(null);
+          }
+        } else {
+          setReading(result);
+          setReadingSource('remote');
+          // persist successful reading to cache
+          try {
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
+          } catch (e) {
+            // ignore cache write errors
+          }
+        }
+      } catch (err) {
+        setError('Failed to get daily reading.');
+      } finally {
+        setLoading(false);
+      }
     };
-  }, [response]);
-
-  // PanResponder and Animated for draggable search bar
-  const pan = useRef(new Animated.ValueXY()).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pan.setOffset({
-          x: (pan.x as any).__getValue(),
-          y: (pan.y as any).__getValue(),
-        });
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: Animated.event([
-        null,
-        { dx: pan.x, dy: pan.y },
-      ], { useNativeDriver: false }),
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-      },
-    })
-  ).current;
+    fetchReading();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Search Scripture</Text>
-      </View>
-
-      {/* Absolutely positioned draggable search bar */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          styles.searchBarAbsolute,
-          { transform: pan.getTranslateTransform() }
-        ]}
-        {...panResponder.panHandlers}
+      <LinearGradient
+        colors={["#181a1b", "#232627"]}
+        style={{ flex: 1 }}
       >
-        <Ionicons name="search-outline" size={20} color="#6b7280" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search verses, topics, or keywords..."
-          placeholderTextColor="#6b7280"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </Animated.View>
-
-
-      {/* Search button and response area */}
-      <View style={styles.resultsContainer}>
-        <TouchableOpacity
-          style={[styles.resultItem, { marginBottom: 20, backgroundColor: '#6366f1', alignItems: 'center' }]}
-          onPress={handleSearch}
-          disabled={loading}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>{loading ? 'Searching...' : 'Search'}</Text>
-        </TouchableOpacity>
-        {response !== '' && (
-          <View style={styles.resultItem}>
-            <Text style={styles.verseText}>{streamedText}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Floating Stop Button */}
-      <TouchableOpacity
-        style={styles.stopButton}
-        activeOpacity={0.7}
-        onPress={() => {
-          // Stop the streaming effect and show full text
-          if (streamInterval.current) clearInterval(streamInterval.current);
-          setStreamedText(response);
-        }}
-        accessibilityLabel="Stop"
-      >
-        <View style={styles.stopButtonInner}>
-          <Ionicons name="stop" size={28} color="#fff" />
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top, minHeight: 56, justifyContent: 'center' }]}> 
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">Bible Reading</Text>
         </View>
-      </TouchableOpacity>
+  {/* Language picker removed - using default server language */}
+        {/* Bible Reading Content */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+          {loading && (
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ color: '#6366f1', fontSize: 16 }}>Loading...</Text>
+            </View>
+          )}
+          {error && !reading && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ backgroundColor: '#2b2f31', borderRadius: 12, padding: 14, width: '100%' }}>
+                <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
+              </View>
+              <TouchableOpacity onPress={() => {
+                setError(null);
+                setLoading(true);
+                const cacheKey = `dailyReading`;
+                groqService.getDailyReading().then(async (r) => {
+                  if (r.error) {
+                    setError(r.answer || r.error || 'Server returned an error.');
+                    setReading(null);
+                    setReadingSource(null);
+                  } else {
+                    setReading(r);
+                    setReadingSource('remote');
+                    try { await AsyncStorage.setItem(cacheKey, JSON.stringify(r)); } catch {}
+                  }
+                }).catch(() => setError('Failed to get daily reading.')).finally(() => setLoading(false));
+              }} style={{ marginTop: 8 }}>
+                <Text style={{ color: '#6366f1' }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {reading && reading.answer ? (
+            <View style={styles.resultItem}>
+              {readingSource === 'cache' && (
+                <Text style={{ color: '#bfc3c9', marginBottom: 8 }}>Showing cached reading</Text>
+              )}
+              <Text style={styles.verseText}>{reading.answer}</Text>
+              {reading.references && reading.references.length > 0 && (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={{ color: '#6366f1', fontWeight: '600', marginBottom: 4 }}>References:</Text>
+                  {reading.references.map((ref, idx) => (
+                    <Text key={idx} style={{ color: '#e5e7eb', fontSize: 15 }}>{ref}</Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            // Fallback static verses when no reading available
+            <View style={styles.resultItem}>
+              <Text style={{ color: '#9ca3af', marginBottom: 8 }}>Today's reading is unavailable — showing a short excerpt:</Text>
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: '#6366f1', fontWeight: '600' }}>Genesis 1:1-5</Text>
+                <Text style={styles.verseText}>1. In the beginning God created the heavens and the earth.</Text>
+                <Text style={styles.verseText}>2. Now the earth was formless and empty, darkness was over the surface of the deep, and the Spirit of God was hovering over the waters.</Text>
+                <Text style={styles.verseText}>3. And God said, "Let there be light," and there was light.</Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </LinearGradient>
     </SafeAreaView>
   );
+
 }
 
 

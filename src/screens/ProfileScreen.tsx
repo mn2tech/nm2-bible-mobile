@@ -17,7 +17,7 @@ export default function ProfileScreen() {
   // Log the actual redirect URI used by AuthSession (for Google Cloud Console setup)
   // For local development reference (not for Google OAuth):
   console.log('Local dev URI:', 'exp://192.168.1.151:8081');
-  console.log('Redirect URI:', makeRedirectUri({ useProxy: true }));
+  console.log('Redirect URI:', makeRedirectUri());
   const [user, setUser] = useState<GoogleUser | null>(null);
 
   // Provide your OAuth client ID via env or replace the fallback string.
@@ -27,7 +27,7 @@ export default function ProfileScreen() {
   // For standalone/dev client, this will be nm2bibleai://
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '1046280433703-1k5vca96tcktah838dr7ksr48lv3uuv1.apps.googleusercontent.com',
-    redirectUri: makeRedirectUri({ useProxy: true }),
+  redirectUri: makeRedirectUri(),
     scopes: ['profile', 'email'],
   });
 
