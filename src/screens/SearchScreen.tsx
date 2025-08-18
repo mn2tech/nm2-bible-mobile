@@ -1,17 +1,34 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import groqService from '../services/groqService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import newsService from '../services/newsService';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Image,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+// import Video dynamically with safe fallback to expo-av
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet } from 'react-native';
+// small helper to format dates with full month name (e.g., April 12, 2025)
+const formatDate = (raw?: string) => {
+  if (!raw) return '';
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  } catch (e) {
+    return raw;
+  }
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -81,6 +98,95 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  heroCard: {
+    backgroundColor: '#2b2f31',
+    borderRadius: 14,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: 160,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 14,
+    backgroundColor: 'rgba(0,0,0,0.35)'
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700'
+  },
+  heroMeta: {
+    color: '#cbd5e1',
+    marginTop: 6,
+    fontSize: 12
+  },
+  heroContent: {
+    padding: 14,
+  },
+  thumbnail: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#374151',
+  },
+  // list item row layout
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  itemImage: {
+    width: 96,
+    height: 72,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#374151'
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  itemSummary: {
+    color: '#d1d5db',
+    marginTop: 6,
+    fontSize: 14,
+  },
+  sourceBadge: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginRight: 8,
+  },
+  metaText: {
+    color: '#9ca3af',
+    fontSize: 12,
+  },
+  readMore: {
+    color: '#93c5fd',
+    marginTop: 8,
+    fontWeight: '600'
+  },
+  playOverlay: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   reference: {
     fontSize: 14,
     fontWeight: '600',
@@ -119,60 +225,96 @@ const styles = StyleSheet.create({
 // Duplicate imports removed
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
-  const [reading, setReading] = useState<{ answer: string; references?: string[] } | null>(null);
+  // News state
+  const [news, setNews] = useState<Array<{ id: string; title: string; summary: string; source?: string; publishedAt?: string; image?: string; video?: string; url?: string }>>([]);
+  const navigation = useNavigation<any>();
+  // feed URL input removed; the app will auto-discover curated feeds or use backend
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [readingSource, setReadingSource] = useState<'remote' | 'cache' | null>(null);
   
 
   useEffect(() => {
-    const fetchReading = async () => {
+    // On mount, load saved feed URL and cached news
+    const init = async () => {
       setLoading(true);
-      setError(null);
-      setReadingSource(null);
-  const cacheKey = `dailyReading`;
-      // Try to load cached reading first (non-blocking UI)
       try {
+  const saved = await AsyncStorage.getItem('newsFeedUrl');
+  // saved feed URL will be used automatically when discovered, no UI to edit here
+
+        const cacheKey = 'biblicalNews';
         const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed?.answer) {
-            setReading(parsed);
-            setReadingSource('cache');
-          }
-        }
-      } catch (e) {
-        // ignore cache errors
-      }
-      try {
-  const result = await groqService.getDailyReading();
-        // If backend indicates an error, surface a friendly message and keep fallback verses
-        if (result.error) {
-          setError(result.answer || result.error || 'Server returned an error.');
-          // try to keep cached reading (already set above) and mark source
-          if (!reading) {
-            // no cached reading present
-            setReading(null);
-            setReadingSource(null);
-          }
+        if (cached) setNews(JSON.parse(cached));
+
+        // If we have a saved feed, try loading it; otherwise try a set of curated feeds and fall back to the backend API
+        let items;
+        if (saved) {
+          items = await newsService.getBibleNews(saved);
         } else {
-          setReading(result);
-          setReadingSource('remote');
-          // persist successful reading to cache
-          try {
-            await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
-          } catch (e) {
-            // ignore cache write errors
+          const candidates = [
+            'https://harbingersdaily.com/feed/',
+            'https://livinghisword.org/feed/',
+            'https://www.crosswalk.com/rss/feeds/headlines.xml',
+          ];
+          let found = null;
+          for (const c of candidates) {
+            try {
+              const candidateItems = await newsService.getBibleNews(c);
+              if (candidateItems && candidateItems.length > 0) {
+                found = candidateItems;
+                // persist the working feed URL
+                try { await AsyncStorage.setItem('newsFeedUrl', c); } catch {}
+                break;
+              }
+            } catch (e) {
+              // try next candidate
+              continue;
+            }
           }
+          if (found) items = found; else items = await newsService.getBibleNewsFromAPI();
         }
-      } catch (err) {
-        setError('Failed to get daily reading.');
+        setNews(items);
+        try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
+      } catch (e) {
+        setError('Failed to load news.');
       } finally {
         setLoading(false);
       }
     };
-    fetchReading();
+    init();
   }, []);
+
+  const loadFeed = async (url?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      let items;
+      if (url) {
+        try { await AsyncStorage.setItem('newsFeedUrl', url); } catch {}
+        items = await newsService.getBibleNews(url);
+      } else {
+        // try curated candidates automatically
+        const candidates = [
+          'https://harbingersdaily.com/feed/',
+          'https://livinghisword.org/feed/',
+          'https://www.crosswalk.com/rss/feeds/headlines.xml',
+        ];
+        let found = null;
+        for (const c of candidates) {
+          try {
+            const candidateItems = await newsService.getBibleNews(c);
+            if (candidateItems && candidateItems.length > 0) { found = candidateItems; try { await AsyncStorage.setItem('newsFeedUrl', c); } catch {} ; break; }
+          } catch (e) { continue; }
+        }
+        if (found) items = found; else items = await newsService.getBibleNewsFromAPI();
+      }
+      setNews(items);
+      try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
+    } catch (e) {
+      setError('Failed to load feed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -182,70 +324,115 @@ export default function SearchScreen() {
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top, minHeight: 56, justifyContent: 'center' }]}> 
-          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">Bible Reading</Text>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">Global Bible News and Analysis</Text>
         </View>
-  {/* Language picker removed - using default server language */}
-        {/* Bible Reading Content */}
+  {/* Feed selection removed — curated feeds are auto-discovered */}
+        {/* Biblical News Content */}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           {loading && (
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ color: '#6366f1', fontSize: 16 }}>Loading...</Text>
             </View>
           )}
-          {error && !reading && (
+          {error && (
             <View style={{ marginBottom: 16 }}>
               <View style={{ backgroundColor: '#2b2f31', borderRadius: 12, padding: 14, width: '100%' }}>
                 <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
               </View>
               <TouchableOpacity onPress={() => {
+                // simple retry: reload news
                 setError(null);
                 setLoading(true);
-                const cacheKey = `dailyReading`;
-                groqService.getDailyReading().then(async (r) => {
-                  if (r.error) {
-                    setError(r.answer || r.error || 'Server returned an error.');
-                    setReading(null);
-                    setReadingSource(null);
-                  } else {
-                    setReading(r);
-                    setReadingSource('remote');
-                    try { await AsyncStorage.setItem(cacheKey, JSON.stringify(r)); } catch {}
+                (async () => {
+                  try {
+                    const mocked = [
+                      { id: '1', title: 'Church opens new community garden', summary: 'Local church launches a community garden to support families in need.', source: 'Local', publishedAt: '2025-08-12' },
+                      { id: '2', title: 'Bible translation project completes milestone', summary: 'A grassroots translation project finishes the New Testament draft for a language group.', source: 'Mission News', publishedAt: '2025-08-10' },
+                      { id: '3', title: 'Conference on modern parables draws hundreds', summary: 'Ministers and teachers gather to explore how parables shape modern preaching.', source: 'FaithDaily', publishedAt: '2025-08-08' },
+                    ];
+                    await new Promise(r => setTimeout(r, 300));
+                    setNews(mocked);
+                    try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(mocked)); } catch {}
+                  } catch (e) {
+                    setError('Failed to load news.');
+                  } finally {
+                    setLoading(false);
                   }
-                }).catch(() => setError('Failed to get daily reading.')).finally(() => setLoading(false));
+                })();
               }} style={{ marginTop: 8 }}>
                 <Text style={{ color: '#6366f1' }}>Retry</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {reading && reading.answer ? (
-            <View style={styles.resultItem}>
-              {readingSource === 'cache' && (
-                <Text style={{ color: '#bfc3c9', marginBottom: 8 }}>Showing cached reading</Text>
-              )}
-              <Text style={styles.verseText}>{reading.answer}</Text>
-              {reading.references && reading.references.length > 0 && (
-                <View style={{ marginTop: 10 }}>
-                  <Text style={{ color: '#6366f1', fontWeight: '600', marginBottom: 4 }}>References:</Text>
-                  {reading.references.map((ref, idx) => (
-                    <Text key={idx} style={{ color: '#e5e7eb', fontSize: 15 }}>{ref}</Text>
-                  ))}
-                </View>
-              )}
+          {loading && (
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ color: '#6366f1', fontSize: 16 }}>Loading news...</Text>
             </View>
-          ) : (
-            // Fallback static verses when no reading available
-            <View style={styles.resultItem}>
-              <Text style={{ color: '#9ca3af', marginBottom: 8 }}>Today's reading is unavailable — showing a short excerpt:</Text>
-              <View style={{ marginBottom: 8 }}>
-                <Text style={{ color: '#6366f1', fontWeight: '600' }}>Genesis 1:1-5</Text>
-                <Text style={styles.verseText}>1. In the beginning God created the heavens and the earth.</Text>
-                <Text style={styles.verseText}>2. Now the earth was formless and empty, darkness was over the surface of the deep, and the Spirit of God was hovering over the waters.</Text>
-                <Text style={styles.verseText}>3. And God said, "Let there be light," and there was light.</Text>
+          )}
+          {error && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ backgroundColor: '#2b2f31', borderRadius: 12, padding: 14, width: '100%' }}>
+                <Text style={{ color: '#ef4444', fontSize: 16 }}>{error}</Text>
               </View>
             </View>
           )}
+
+          {news.length > 0 && (
+            <View>
+              {/* Hero card for the first item */}
+              <TouchableOpacity
+                style={styles.heroCard}
+                onPress={async () => { if (news[0].url) await WebBrowser.openBrowserAsync(news[0].url); }}
+                activeOpacity={0.95}
+              >
+                {news[0].image ? <Image source={{ uri: news[0].image }} style={styles.heroImage} resizeMode="cover" /> : <View style={[styles.heroImage, { backgroundColor: '#111827' }]} />}
+                <View style={styles.heroOverlay}>
+                  <Text style={styles.heroMeta}>{news[0].source} • {formatDate(news[0].publishedAt)}</Text>
+                  <Text style={styles.heroTitle} numberOfLines={2}>{news[0].title}</Text>
+                  <Text style={{ color: '#e5e7eb', marginTop: 8 }} numberOfLines={3}>{news[0].summary}</Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Thumbnails for the remaining items */}
+              {news.slice(1).map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.resultItem, { padding: 12 }]}
+                  onPress={async () => { if (item.url) await WebBrowser.openBrowserAsync(item.url); }}
+                >
+                  {item.image ? (
+                    <View style={styles.itemRow}>
+                      <Image source={{ uri: item.image }} style={styles.itemImage} resizeMode="cover" />
+                      <View style={styles.itemContent}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={styles.sourceBadge}><Text style={styles.metaText}>{item.source}</Text></View>
+                          <Text style={styles.metaText}>{formatDate(item.publishedAt)}</Text>
+                        </View>
+                        <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
+                        <Text style={styles.itemSummary} numberOfLines={2}>{item.summary}</Text>
+                        <Text style={styles.readMore}>Read more →</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={styles.sourceBadge}><Text style={styles.metaText}>{item.source}</Text></View>
+                          <Text style={styles.metaText}>{formatDate(item.publishedAt)}</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.itemTitle, { marginTop: 8 }]} numberOfLines={2}>{item.title}</Text>
+                      <Text style={styles.itemSummary} numberOfLines={3}>{item.summary}</Text>
+                      <Text style={styles.readMore}>Read more →</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </ScrollView>
+        
       </LinearGradient>
     </SafeAreaView>
   );

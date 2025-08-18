@@ -2,7 +2,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from '../screens/HomeScreen';
-// import OtherScreen from '../screens/OtherScreen'; // Example
+import VideoScreen from '../screens/VideoScreen';
 
 const Stack = createStackNavigator();
 
@@ -15,7 +15,8 @@ export default function AppNavigator() {
         headerShown: false, // hide header if you want
       }}
     >
-      <Stack.Screen name="Home" component={HomeScreen} />
+  <Stack.Screen name="Home" component={HomeScreen} />
+  <Stack.Screen name="Video" component={VideoScreen} />
       {/* <Stack.Screen name="Other" component={OtherScreen} /> */}
     </Stack.Navigator>
   );

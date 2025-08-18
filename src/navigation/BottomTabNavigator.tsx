@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
@@ -17,16 +17,21 @@ export default function BottomTabNavigator() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
+          // Use a prayer-hands icon for the Reading/Prayer tab via FontAwesome5.
+          if (route.name === 'Reading') {
+            // alternate FA5 name: try 'praying-hands' if 'hands-praying' isn't available in this pack
+            return <FontAwesome5 name="praying-hands" size={24} color={color} solid={focused} />;
+          }
+
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'Home') {
             iconName = focused ? 'locate' : 'locate-outline';
           } else if (route.name === 'Search') {
-            iconName = focused ? 'globe' : 'globe-outline';
-          } else if (route.name === 'Reading') {
-            iconName = focused ? 'sparkles' : 'sparkles-outline';
+            iconName = focused ? 'newspaper' : 'newspaper-outline';
           } else if (route.name === 'Favorites') {
-            iconName = focused ? 'wifi' : 'wifi-outline';
+            // Favorites tab repurposed as Daily Devotional — show a book icon
+            iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {

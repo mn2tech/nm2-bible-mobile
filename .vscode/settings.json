@@ -1,0 +1,6 @@
+{
+  "runOnSave.commands": [],
+  "editor.codeActionsOnSave": {},
+  "eslint.run": "onType",
+  "typescript.validate.enable": true
+}
