@@ -7,6 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Vibration,
+  Image,
+  Platform,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
 
 export default function ReadingScreen() {
@@ -146,20 +152,67 @@ export default function ReadingScreen() {
     };
   }, []);
 
+  const verses = [
+    { ref: 'Philippians 4:6', text: 'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.' },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Prayer Room</Text>
-        <Text style={styles.subtitle}>A quiet place to pray</Text>
-      </View>
+      <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()} accessible={false}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+            <View style={styles.header}>
+              <Text style={styles.title}>Prayer Room</Text>
+              <Text style={styles.subtitle}>A quiet place to pray</Text>
+            </View>
 
-      <View style={styles.centerArea}>
+            <View style={styles.centerArea}>
+        <View style={styles.topBanner}>
+          <Text style={styles.focusTitle}>Today's Focus</Text>
+          <Text style={styles.focusText}>Be still and know that I am God. — Psalm 46:10</Text>
+        </View>
+
+        <Image
+          source={require('../../assets/jesus-praying.png')}
+          style={styles.prayerImage}
+          accessibilityLabel="Jesus praying"
+        />
+
+        <View style={styles.versesContainer}>
+          {verses.map((v) => (
+            <View key={v.ref} style={styles.verseContainerSmall}>
+              <Text style={styles.verseRef}>{v.ref}</Text>
+              <Text style={styles.verseTextSmall}>{v.text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.appointmentButton} onPress={startTimer} accessibilityLabel="Make appointment with God now">
+          <Text style={styles.appointmentText}>Make appointment with God — Start now</Text>
+        </TouchableOpacity>
+
         <Text style={styles.largeTime}>{formatTime(remaining > 0 ? remaining : durationSec)}</Text>
 
         <View style={styles.inputsRow}>
-          <TextInput value={minutesInput} onChangeText={setMinutesInput} keyboardType="number-pad" style={styles.smallInput} />
+          <TextInput
+            value={minutesInput}
+            onChangeText={setMinutesInput}
+            keyboardType="number-pad"
+            style={styles.smallInput}
+            blurOnSubmit
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
           <Text style={{ color: '#e5e7eb', marginHorizontal: 8, fontSize: 18 }}>:</Text>
-          <TextInput value={secondsInput} onChangeText={setSecondsInput} keyboardType="number-pad" style={styles.smallInput} />
+          <TextInput
+            value={secondsInput}
+            onChangeText={setSecondsInput}
+            keyboardType="number-pad"
+            style={styles.smallInput}
+            blurOnSubmit
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
         </View>
 
         <View style={styles.controlsRow}>
@@ -167,7 +220,10 @@ export default function ReadingScreen() {
           <TouchableOpacity onPress={pauseTimer} style={styles.controlButton}><Text style={styles.controlText}>Pause</Text></TouchableOpacity>
           <TouchableOpacity onPress={resetTimer} style={[styles.controlButton, styles.resetButton]}><Text style={[styles.controlText, styles.resetText]}>Reset</Text></TouchableOpacity>
         </View>
-      </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -219,16 +275,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   centerArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+  flex: 1,
+  justifyContent: 'flex-start',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  paddingTop: 28,
   },
   largeTime: {
     color: '#ffffff',
     fontSize: 72,
     fontWeight: '800',
-    marginBottom: 12,
+    marginBottom: 8,
+    marginTop: 8,
   },
   inputsRow: {
     flexDirection: 'row',
@@ -260,4 +318,57 @@ const styles = StyleSheet.create({
   controlText: { color: '#fff', fontWeight: '700' },
   resetButton: { backgroundColor: '#ef4444' },
   resetText: { color: '#fff' },
+  prayerImage: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.02)'
+  },
+  versesContainer: {
+    width: '100%',
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+  verseContainerSmall: {
+    marginBottom: 8,
+  },
+  verseRef: {
+    color: '#6366f1',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  verseTextSmall: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  topBanner: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  focusTitle: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  focusText: {
+    color: '#c7c7d2',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  appointmentButton: {
+    marginTop: 8,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#8b5cf6',
+    borderRadius: 12,
+  },
+  appointmentText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
 });

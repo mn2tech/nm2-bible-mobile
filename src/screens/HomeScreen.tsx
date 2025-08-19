@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -155,8 +156,9 @@ function HomeScreen() {
           <View style={{ flex: 1 }}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
               {loading && (
-                <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={{ color: '#6366f1', fontSize: 16 }}>Thinking...</Text>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#6366f1" />
+                  <Text style={styles.loadingText}>Thinking...</Text>
                 </View>
               )}
               {error && (
@@ -316,6 +318,22 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 100,
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(99,102,241,0.08)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  loadingText: {
+    color: '#6366f1',
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '600',
   },
   taglineContainer: {
     alignItems: 'center',

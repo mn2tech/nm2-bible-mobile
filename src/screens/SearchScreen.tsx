@@ -251,7 +251,6 @@ export default function SearchScreen() {
           items = await newsService.getBibleNews(saved);
         } else {
           const candidates = [
-            'https://harbingersdaily.com/feed/',
             'https://livinghisword.org/feed/',
             'https://www.crosswalk.com/rss/feeds/headlines.xml',
           ];
@@ -294,7 +293,6 @@ export default function SearchScreen() {
       } else {
         // try curated candidates automatically
         const candidates = [
-          'https://harbingersdaily.com/feed/',
           'https://livinghisword.org/feed/',
           'https://www.crosswalk.com/rss/feeds/headlines.xml',
         ];
@@ -328,7 +326,7 @@ export default function SearchScreen() {
         </View>
   {/* Feed selection removed — curated feeds are auto-discovered */}
         {/* Biblical News Content */}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           {loading && (
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ color: '#6366f1', fontSize: 16 }}>Loading...</Text>
@@ -379,7 +377,7 @@ export default function SearchScreen() {
           )}
 
           {news.length > 0 && (
-            <View>
+            <View style={{ marginTop: 6 }}>
               {/* Hero card for the first item */}
               <TouchableOpacity
                 style={styles.heroCard}

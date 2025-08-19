@@ -39,6 +39,49 @@ const mocked: NewsItem[] = [
   },
 ];
 
+// Helpers to normalize IDs coming from RSS/Atom feeds where fields may be objects
+function extractText(node: any): string | null {
+  if (!node) return null;
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number' || typeof node === 'boolean') return String(node);
+  if (typeof node === 'object') {
+    return node._text || node['#text'] || node['@_value'] || node['#cdata'] || node['text'] || null;
+  }
+  return null;
+}
+
+function makeStableId(feedHint: string | undefined, title: string | undefined, pubDate: string | undefined, idx: number) {
+  const t = title ? String(title).trim() : '';
+  const d = pubDate ? String(pubDate).trim() : '';
+  if (t && d) return `${t}::${d}`.replace(/\s+/g, ' ');
+  if (t) return `${t}::${idx}`.replace(/\s+/g, ' ');
+  return `${feedHint || 'feed'}-${idx}`;
+}
+
+// Lightweight HTML entity decoder for common cases (keeps dependency-free)
+function decodeHtml(input: string | null | undefined): string {
+  if (!input) return '';
+  let s = String(input);
+  const map: Record<string, string> = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&#039;': "'",
+    '&apos;': "'",
+    '&nbsp;': ' ',
+  };
+  s = s.replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (m) => map[m] || m);
+  // numeric entities (decimal)
+  s = s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  // numeric entities (hex)
+  s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  // also replace common named ones not covered by the first regex
+  Object.keys(map).forEach((k) => { s = s.split(k).join(map[k]); });
+  return s;
+}
+
 // Try to parse RSS feeds when a feedUrl is provided. Falls back to mocked items on error.
 export default {
   async getBibleNews(feedUrl?: string): Promise<NewsItem[]> {
@@ -67,10 +110,13 @@ export default {
       const siteTitle = channel?.title || null;
 
       const parsed: NewsItem[] = (Array.isArray(items) ? items : [items]).map((it: any, idx: number) => {
-        const guid = it.guid?._text || it.guid || it.id || (it.link && (it.link['@_href'] || it.link)) || `${Date.now()}-${idx}`;
-        const title = it.title?._text || it.title || '';
-        const link = it.link?._text || it.link || (it.link && it.link['@_href']) || null;
-        const description = it.description?._text || it.summary?._text || it.summary || it.content || '';
+        const rawGuid = it.guid ?? it.id ?? it.link ?? null;
+        const guidText = extractText(rawGuid) || extractText(it.id) || extractText(it.link) || null;
+        const titleRaw = extractText(it.title) || it.title || '';
+        const title = decodeHtml(titleRaw);
+        const link = extractText(it.link) || (it.link && it.link['@_href']) || null;
+        const descriptionRaw = extractText(it.description) || extractText(it.summary) || it.summary || it.content || '';
+        const description = decodeHtml(descriptionRaw);
         const pubDate = it.pubDate || it.published || it.updated || null;
 
         // Try to extract enclosure/media image only
@@ -87,11 +133,13 @@ export default {
           if (mtype.startsWith('image')) image = murl;
         }
 
+        const idCandidate = guidText || link || makeStableId(feedUrl || siteTitle || undefined, title || undefined, pubDate ? String(pubDate) : undefined, idx);
+
         return {
-          id: String(guid),
+          id: String(idCandidate),
           title: String(title),
           summary: String(description),
-          source: siteTitle,
+          source: siteTitle ? decodeHtml(siteTitle) : siteTitle,
           publishedAt: pubDate ? String(pubDate) : undefined,
           image: image || undefined,
           url: link || undefined,
@@ -132,16 +180,21 @@ export default {
 
       if (!Array.isArray(parsedJson)) return mocked;
 
-      const mapped: NewsItem[] = parsedJson.map((it: any, idx: number) => ({
-        id: String(it.id || it.url || `${Date.now()}-${idx}`),
-        title: String(it.title || ''),
-        summary: String(it.summary || it.description || ''),
-        source: it.source || undefined,
-        publishedAt: it.publishedAt || it.pubDate || undefined,
-        image: it.image || undefined,
-        video: it.video || undefined,
-        url: it.url || undefined,
-      }));
+      const mapped: NewsItem[] = parsedJson.map((it: any, idx: number) => {
+        const title = String(it.title || '');
+        const pubDate = it.publishedAt || it.pubDate || undefined;
+        const idCandidate = extractText(it.id) || it.url || makeStableId(undefined, title, pubDate ? String(pubDate) : undefined, idx);
+        return {
+          id: String(idCandidate),
+          title: title,
+          summary: String(it.summary || it.description || ''),
+          source: it.source || undefined,
+          publishedAt: pubDate || undefined,
+          image: it.image || undefined,
+          video: it.video || undefined,
+          url: it.url || undefined,
+        };
+      });
 
       return mapped;
     } catch (e) {
