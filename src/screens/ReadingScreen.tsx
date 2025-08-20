@@ -63,20 +63,9 @@ export default function ReadingScreen() {
         else if (soundRef.current.playAsync) await soundRef.current.playAsync();
         return;
       }
-
       const asset = require('../../assets/silent-evening-calm-piano-335749.mp3');
-      // prefer expo-av
-      if (AudioRef.current && AudioRef.current.Sound) {
-        const Sound = AudioRef.current.Sound;
-        // Sound.createAsync may exist on Audio.Sound in some expo-av versions
-        if (Sound.createAsync) {
-          const { sound } = await Sound.createAsync(asset, { shouldPlay: true, isLooping: true, volume: 0.7 });
-          soundRef.current = sound;
-          return;
-        }
-      }
 
-      // fallback to direct expo-av require if AudioRef wasn't set
+      // Try expo-av first
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const expoAv = require('expo-av');
@@ -85,12 +74,39 @@ export default function ReadingScreen() {
           soundRef.current = sound;
           return;
         }
-      } catch (e) {
-        // ignore
+      } catch (err) {
+        // continue to next fallback
+        console.log('expo-av not available or failed to load:', err);
       }
 
-      // if still nothing, throw to indicate audio unavailable
-      throw new Error('No audio available');
+      // Try expo-audio (alternative package) if available
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const expoAudio = require('expo-audio');
+        // attempt common API surface if present
+        if (expoAudio && expoAudio.Sound && expoAudio.Sound.createAsync) {
+          const { sound } = await expoAudio.Sound.createAsync(asset, { shouldPlay: true, isLooping: true, volume: 0.7 });
+          soundRef.current = sound;
+          return;
+        }
+      } catch (err) {
+        console.log('expo-audio not available or failed to load:', err);
+      }
+
+      // Last-resort: attempt to dynamic-require expo-av via AudioRef if set earlier
+      try {
+        if (AudioRef.current && AudioRef.current.Sound && AudioRef.current.Sound.createAsync) {
+          const Sound = AudioRef.current.Sound;
+          const { sound } = await Sound.createAsync(asset, { shouldPlay: true, isLooping: true, volume: 0.7 });
+          soundRef.current = sound;
+          return;
+        }
+      } catch (err) {
+        console.log('AudioRef fallback failed:', err);
+      }
+
+      // if still nothing, log and exit gracefully
+      console.log('No audio implementation available. Install expo-av or expo-audio to enable music.');
     } catch (e) {
       console.log('playMusic failed', e);
     }
@@ -161,9 +177,8 @@ export default function ReadingScreen() {
       <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()} accessible={false}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={80}>
           <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-            <View style={styles.header}>
-              <Text style={styles.title}>Prayer Room</Text>
-              <Text style={styles.subtitle}>A quiet place to pray</Text>
+            <View style={[styles.header, { alignItems: 'center' }] }>
+              <Text style={[styles.subtitle, { textAlign: 'center' }]}>A quiet place to pray</Text>
             </View>
 
             <View style={styles.centerArea}>
@@ -219,6 +234,10 @@ export default function ReadingScreen() {
           <TouchableOpacity onPress={startTimer} style={styles.controlButton}><Text style={styles.controlText}>{running ? 'Running' : 'Start'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={pauseTimer} style={styles.controlButton}><Text style={styles.controlText}>Pause</Text></TouchableOpacity>
           <TouchableOpacity onPress={resetTimer} style={[styles.controlButton, styles.resetButton]}><Text style={[styles.controlText, styles.resetText]}>Reset</Text></TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', marginTop: 12, width: '100%', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={playMusic} style={[styles.controlButton, { flex: 1, marginHorizontal: 6 }]} accessibilityLabel="Play background music"><Text style={styles.controlText}>Play Music</Text></TouchableOpacity>
+          <TouchableOpacity onPress={stopMusic} style={[styles.controlButton, styles.resetButton, { flex: 1, marginHorizontal: 6 }]} accessibilityLabel="Stop background music"><Text style={[styles.controlText, styles.resetText]}>Stop Music</Text></TouchableOpacity>
         </View>
             </View>
           </ScrollView>
