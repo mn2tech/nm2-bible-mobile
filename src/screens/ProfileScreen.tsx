@@ -14,10 +14,7 @@ type GoogleUser = {
 };
 
 export default function ProfileScreen() {
-  // Log the actual redirect URI used by AuthSession (for Google Cloud Console setup)
-  // For local development reference (not for Google OAuth):
-  console.log('Local dev URI:', 'exp://192.168.1.151:8081');
-  console.log('Redirect URI:', makeRedirectUri());
+  // Runtime redirect URI is available via makeRedirectUri() if needed; avoid logging production URIs here.
   const [user, setUser] = useState<GoogleUser | null>(null);
 
   // Provide your OAuth client ID via env or replace the fallback string.

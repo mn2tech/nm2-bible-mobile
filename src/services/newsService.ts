@@ -9,35 +9,7 @@ export type NewsItem = {
   url?: string;
 };
 
-const mocked: NewsItem[] = [
-  {
-    id: '1',
-    title: 'Community Garden Launched by Local Church',
-    summary: 'A local congregation started a community garden to provide food for families and teach stewardship.',
-    source: 'Local',
-    publishedAt: '2025-08-12',
-    image: 'https://images.unsplash.com/photo-1522174242588-6c3b1e1d2b2b?auto=format&fit=crop&w=800&q=60',
-    url: 'https://example.com/community-garden',
-  },
-  {
-    id: '2',
-    title: 'Translation Project Reaches New Testament Milestone',
-    summary: 'Volunteers completed a New Testament draft for an underserved language community.',
-    source: 'Mission News',
-    publishedAt: '2025-08-10',
-    image: 'https://images.unsplash.com/photo-1529257414771-1968b1b38e1c?auto=format&fit=crop&w=800&q=60',
-    url: 'https://example.com/translation-project',
-  },
-  {
-    id: '3',
-    title: 'Conference Explores Parables in Modern Preaching',
-    summary: 'Pastors and teachers gathered to discuss how parables inform preaching in the 21st century.',
-    source: 'FaithDaily',
-    publishedAt: '2025-08-08',
-    image: 'https://images.unsplash.com/photo-1508873699372-7ae1be6b7f4b?auto=format&fit=crop&w=800&q=60',
-    url: 'https://example.com/parables-conference',
-  },
-];
+const mocked: NewsItem[] = [];
 
 // Helpers to normalize IDs coming from RSS/Atom feeds where fields may be objects
 function extractText(node: any): string | null {

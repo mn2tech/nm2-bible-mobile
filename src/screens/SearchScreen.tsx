@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import newsService from '../services/newsService';
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   Text,
@@ -29,6 +30,8 @@ const formatDate = (raw?: string) => {
     return raw;
   }
 };
+
+// ...existing code...
 
 const styles = StyleSheet.create({
   container: {
@@ -225,20 +228,34 @@ const styles = StyleSheet.create({
 // Duplicate imports removed
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
+  // Dev toggle: when true, clear saved biblical news and feed URL on mount.
+  // Set to true to force-clear the news page during development.
+  const CLEAR_BIBLE_NEWS_ON_MOUNT = true;
   // News state
   const [news, setNews] = useState<Array<{ id: string; title: string; summary: string; source?: string; publishedAt?: string; image?: string; video?: string; url?: string }>>([]);
   const navigation = useNavigation<any>();
   // feed URL input removed; the app will auto-discover curated feeds or use backend
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedEditorVisible, setFeedEditorVisible] = useState(false);
+  const [feedUrlInput, setFeedUrlInput] = useState<string>('');
   
 
   useEffect(() => {
     // On mount, load saved feed URL and cached news
     const init = async () => {
+      if (CLEAR_BIBLE_NEWS_ON_MOUNT) {
+        try {
+          await AsyncStorage.removeItem('biblicalNews');
+          await AsyncStorage.removeItem('newsFeedUrl');
+        } catch (e) {
+          // ignore
+        }
+      }
       setLoading(true);
       try {
   const saved = await AsyncStorage.getItem('newsFeedUrl');
+  if (saved) setFeedUrlInput(saved);
   // saved feed URL will be used automatically when discovered, no UI to edit here
 
         const cacheKey = 'biblicalNews';
@@ -246,13 +263,15 @@ export default function SearchScreen() {
         if (cached) setNews(JSON.parse(cached));
 
         // If we have a saved feed, try loading it; otherwise try a set of curated feeds and fall back to the backend API
-        let items;
+  let items: Array<{ id: string; title: string; summary: string; source?: string; publishedAt?: string; image?: string; video?: string; url?: string }> = [];
         if (saved) {
           items = await newsService.getBibleNews(saved);
         } else {
           const candidates = [
-            'https://livinghisword.org/feed/',
-            'https://www.crosswalk.com/rss/feeds/headlines.xml',
+            'https://harbingersdaily.com/feed/',
+            'https://www.thegospelcoalition.org/feed/',
+            'https://www.christianitytoday.com/rss.xml',
+            'https://www.christianpost.com/rss.xml',
           ];
           let found = null;
           for (const c of candidates) {
@@ -269,10 +288,10 @@ export default function SearchScreen() {
               continue;
             }
           }
-          if (found) items = found; else items = await newsService.getBibleNewsFromAPI();
+          if (found) items = found; else { items = []; setError('No RSS feed discovered.'); }
         }
-        setNews(items);
-        try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
+  setNews(items);
+  try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
       } catch (e) {
         setError('Failed to load news.');
       } finally {
@@ -282,19 +301,41 @@ export default function SearchScreen() {
     init();
   }, []);
 
+    const openFeedEditor = async () => {
+      const saved = await AsyncStorage.getItem('newsFeedUrl');
+      setFeedUrlInput(saved || '');
+      setFeedEditorVisible(true);
+    };
+
+    const saveFeedUrl = async () => {
+      try {
+        if (feedUrlInput && feedUrlInput.trim()) {
+          await AsyncStorage.setItem('newsFeedUrl', feedUrlInput.trim());
+          setFeedEditorVisible(false);
+          // reload with provided url
+          await loadFeed(feedUrlInput.trim());
+        }
+      } catch (e) {
+        // ignore and close
+        setFeedEditorVisible(false);
+      }
+    };
+
   const loadFeed = async (url?: string) => {
     setLoading(true);
     setError(null);
     try {
-      let items;
+  let items: Array<{ id: string; title: string; summary: string; source?: string; publishedAt?: string; image?: string; video?: string; url?: string }> = [];
       if (url) {
         try { await AsyncStorage.setItem('newsFeedUrl', url); } catch {}
         items = await newsService.getBibleNews(url);
       } else {
         // try curated candidates automatically
         const candidates = [
-          'https://livinghisword.org/feed/',
-          'https://www.crosswalk.com/rss/feeds/headlines.xml',
+          'https://harbingersdaily.com/feed/',
+          'https://www.thegospelcoalition.org/feed/',
+          'https://www.christianitytoday.com/rss.xml',
+          'https://www.christianpost.com/rss.xml',
         ];
         let found = null;
         for (const c of candidates) {
@@ -303,12 +344,28 @@ export default function SearchScreen() {
             if (candidateItems && candidateItems.length > 0) { found = candidateItems; try { await AsyncStorage.setItem('newsFeedUrl', c); } catch {} ; break; }
           } catch (e) { continue; }
         }
-        if (found) items = found; else items = await newsService.getBibleNewsFromAPI();
+  if (found) items = found; else { items = []; setError('No RSS feed discovered.'); }
       }
-      setNews(items);
-      try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
+  setNews(items);
+  try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
     } catch (e) {
       setError('Failed to load feed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearCache = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await AsyncStorage.removeItem('biblicalNews');
+      await AsyncStorage.removeItem('newsFeedUrl');
+      setNews([]);
+      // reload (will try curated feeds and API fallback)
+      await loadFeed();
+    } catch (e) {
+      setError('Failed to clear cache.');
     } finally {
       setLoading(false);
     }
@@ -321,11 +378,54 @@ export default function SearchScreen() {
         style={{ flex: 1 }}
       >
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top, minHeight: 56, justifyContent: 'center' }]}> 
-          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">Global Bible News and Analysis</Text>
+  <View style={[styles.header, { paddingTop: insets.top, minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}> 
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">Biblical News & Analysis</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={openFeedEditor} style={{ marginRight: 10, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#0b1220', borderRadius: 8, borderWidth: 1, borderColor: '#23272f' }} accessibilityLabel="Edit feed URL">
+              <Ionicons name="link-outline" size={18} color="#9ca3af" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setError(null); loadFeed(); }} style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#111827', borderRadius: 8, borderWidth: 1, borderColor: '#2b2f31' }} accessibilityLabel="Refresh Biblical News">
+              {loading ? (
+                <ActivityIndicator size="small" color="#6366f1" />
+              ) : (
+                <Text style={{ color: '#6366f1', fontSize: 14 }}>Refresh</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={clearCache} style={{ marginLeft: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#2a0b0b', borderRadius: 8, borderWidth: 1, borderColor: '#3b0f0f' }} accessibilityLabel="Clear news cache and reload">
+              <Text style={{ color: '#fda4af', fontSize: 12 }}>Clear cache</Text>
+            </TouchableOpacity>
+          </View>
         </View>
   {/* Feed selection removed — curated feeds are auto-discovered */}
         {/* Biblical News Content */}
+        {feedEditorVisible && (
+          <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+            <View style={{ backgroundColor: '#111827', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#23272f' }}>
+              <Text style={{ color: '#9ca3af', marginBottom: 8 }}>Feed URL or homepage (paste a page like livinghisword or harbingers):</Text>
+              <TextInput
+                value={feedUrlInput}
+                onChangeText={setFeedUrlInput}
+                placeholder="https://example.com/feed/"
+                placeholderTextColor="#6b7280"
+                style={{ color: '#fff', borderWidth: 1, borderColor: '#2b2f31', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 8 }}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                <TouchableOpacity onPress={() => setFeedEditorVisible(false)} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Text style={{ color: '#9ca3af' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={async () => { if (feedUrlInput && feedUrlInput.trim()) { await saveFeedUrl(); } }} style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#063b5b', borderRadius: 8 }}>
+                  <Text style={{ color: '#fff' }}>Save & Load</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={async () => { if (feedUrlInput && feedUrlInput.trim()) { setError(null); setLoading(true); try { const items = await newsService.getBibleNews(feedUrlInput.trim()); setNews(items); try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {} } catch (e) { setError('Failed to load feed.'); } finally { setLoading(false); } } }} style={{ paddingHorizontal: 12, paddingVertical: 8, marginLeft: 8 }}>
+                  <Text style={{ color: '#9ca3af' }}>Try</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 8, paddingHorizontal: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           {loading && (
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
