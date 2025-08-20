@@ -288,7 +288,7 @@ export default function SearchScreen() {
               continue;
             }
           }
-          if (found) items = found; else { items = []; setError('No RSS feed discovered.'); }
+          if (found) items = found; else { items = []; /* no RSS feed discovered — don't show error */ }
         }
   setNews(items);
   try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
@@ -344,7 +344,7 @@ export default function SearchScreen() {
             if (candidateItems && candidateItems.length > 0) { found = candidateItems; try { await AsyncStorage.setItem('newsFeedUrl', c); } catch {} ; break; }
           } catch (e) { continue; }
         }
-  if (found) items = found; else { items = []; setError('No RSS feed discovered.'); }
+  if (found) items = found; else { items = []; /* no RSS feed discovered — don't show error */ }
       }
   setNews(items);
   try { await AsyncStorage.setItem('biblicalNews', JSON.stringify(items)); } catch {}
