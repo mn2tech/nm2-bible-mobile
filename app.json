@@ -29,16 +29,20 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "nm2bibleai",
     "extra": {
       "eas": {
         "projectId": "3e7a9bca-dc6e-49e3-848c-473601f477d1"
-      }
+      },
+      "googleAndroidClientId": "1046280433703-q5ic0dg76oc55l3hc7d2n16b3ofh13f1.apps.googleusercontent.com",
+      "googleWebClientId": "1046280433703-1k5vca96tcktah838dr7ksr48lv3uuv1.apps.googleusercontent.com"
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/3e7a9bca-dc6e-49e3-848c-473601f477d1"
-    }
+    },
+    "plugins": [
+      "expo-video"
+    ]
   }
 }

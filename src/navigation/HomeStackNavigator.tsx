@@ -15,6 +15,7 @@ export type HomeStackParamList = {
     answer: string;
     references?: string[];
     images?: GalleryImage[];
+  imageSessionId?: string;
   };
 };
 

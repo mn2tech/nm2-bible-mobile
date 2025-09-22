@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 const groq = new Groq({
-  apiKey: process.env.EXPO_PUBLIC_GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 // Streaming endpoint for real-time responses
@@ -31,7 +31,7 @@ app.post('/api/groq/stream', async (req, res) => {
         { role: 'system', content: 'You are a helpful Bible AI assistant with deep knowledge of Christian scripture. Provide accurate, respectful, and informative responses about biblical topics, verses, and Christian theology.' },
         { role: 'user', content: prompt },
       ],
-      model: 'llama3-8b-8192',
+  model: 'llama-3.3-70b-versatile',
       temperature: 0.7,
       max_tokens: 1024,
       top_p: 1,
@@ -63,7 +63,7 @@ app.post('/api/groq', async (req, res) => {
         { role: 'system', content: 'You are a helpful Bible AI assistant with deep knowledge of Christian scripture. Provide accurate, respectful, and informative responses about biblical topics, verses, and Christian theology.' },
         { role: 'user', content: prompt },
       ],
-      model: 'llama3-8b-8192',
+  model: 'llama-3.3-70b-versatile',
       temperature: 0.7,
       max_tokens: 1024,
       top_p: 1,
@@ -88,7 +88,7 @@ app.get('/api/groq/daily', async (req, res) => {
         { role: 'system', content: 'You are a helpful Bible AI assistant. Provide accurate, respectful daily readings.' },
         { role: 'user', content: prompt },
       ],
-      model: 'llama3-8b-8192',
+  model: 'llama-3.3-70b-versatile',
       temperature: 0.7,
       max_tokens: 512,
       top_p: 1,

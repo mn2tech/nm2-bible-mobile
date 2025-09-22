@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
+import { AuthProvider } from './src/contexts/AuthContext';
 
 function InnerApp() {
   const insets = useSafeAreaInsets();
@@ -20,7 +21,9 @@ function InnerApp() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <InnerApp />
+      <AuthProvider>
+        <InnerApp />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -57,14 +57,21 @@ export class GroqBibleService {
     }
   }
 
-  async queryBible(question: string): Promise<BibleQueryResponse> {
+  async queryBible(question: string, userContext?: any): Promise<BibleQueryResponse> {
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ 
+          question,
+          userContext: userContext ? {
+            name: userContext.name,
+            recentQuestions: userContext.recentQuestions?.slice(0, 5) || [],
+            favoriteTopics: userContext.favoriteTopics || [],
+          } : undefined
+        }),
       });
       const data = await res.json();
       let answer = data.answer;

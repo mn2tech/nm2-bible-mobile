@@ -22,6 +22,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
 import GroqBibleService from '../services/groqService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface GalleryImage {
   url: string;
@@ -40,6 +41,17 @@ interface ResponseScreenProps {
 
 
 export default function ResponseScreen({ route, navigation }: ResponseScreenProps) {
+  const { isAuthenticated, userDataService, userProfile } = useAuth();
+  const [savedVerses, setSavedVerses] = useState<Set<string>>(new Set());
+
+  // Initialize saved verses from user profile
+  useEffect(() => {
+    if (userProfile && userProfile.favorites) {
+      const favoriteReferences = new Set(userProfile.favorites.map(fav => fav.reference));
+      setSavedVerses(favoriteReferences);
+    }
+  }, [userProfile]);
+  
   // PanResponder for slide-to-go-back gesture (only active when not typing and can go back)
   const panResponder = useRef(
     PanResponder.create({
@@ -55,6 +67,7 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
     })
   ).current;
   const { question, answer, references, images = [] } = route.params;
+  const imageSessionIdFromRoute = (route.params as any).imageSessionId as string | undefined;
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [followUpQuery, setFollowUpQuery] = useState('');
@@ -141,49 +154,57 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
     console.log('Copying response...');
   };
 
+  const handleSaveVerse = async (reference: string, text: string) => {
+    if (!isAuthenticated) {
+      Alert.alert('Sign in required', 'Please sign in to save verses to your favorites.');
+      return;
+    }
+
+    try {
+      // Check if already saved
+      const isAlreadySaved = savedVerses.has(reference);
+      
+      if (isAlreadySaved) {
+        // Remove from favorites
+        await userDataService.removeFavoriteVerseByReference(reference);
+        setSavedVerses(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(reference);
+          return newSet;
+        });
+        Alert.alert('Removed!', 'Verse removed from your favorites.');
+      } else {
+        // Add to favorites
+        await userDataService.addFavoriteVerse({
+          reference,
+          text: text.trim(),
+        });
+        setSavedVerses(prev => new Set([...prev, reference]));
+        Alert.alert('Saved!', 'Verse added to your favorites.');
+      }
+    } catch (error) {
+      console.error('Failed to save/remove verse:', error);
+      Alert.alert('Error', 'Failed to save verse. Please try again.');
+    }
+  };
+
   const handleFollowUp = async () => {
     if (!followUpQuery.trim()) return;
-          {!isTyping && (
-            <Animated.View
-              style={[
-                styles.floatingSearchContainer,
-                {
-                  opacity: fadeAnim,
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  bottom: insets.bottom,
-                  zIndex: 100,
-                },
-              ]}
-            >
-              <View style={[styles.floatingSearchBar, styles.floatingSearchBarGlow]}>
-                <Ionicons name="attach-outline" size={20} color="#9ca3af" style={styles.attachIcon} />
-                <TextInput
-                  style={styles.floatingSearchInput}
-                  placeholder="Ask follow-up..."
-                  placeholderTextColor="#6b7280"
-                  multiline
-                  value={followUpQuery}
-                  onChangeText={setFollowUpQuery}
-                  onSubmitEditing={handleFollowUp}
-                  autoFocus={true}
-                />
-                {followUpQuery.trim() ? (
-                  <TouchableOpacity 
-                    style={styles.sendButton} 
-                    onPress={handleFollowUp}
-                  >
-                    <Ionicons name="send" size={18} color="#6366f1" />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.micButton}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={22} color="#9ca3af" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </Animated.View>
-          )}
+    // Prevent sending while the main stream is still typing
+    if (isTyping) return;
+    try {
+      setIsTyping(true);
+      // Include imageSessionId from route if present so the backend can resolve follow-ups
+      const context = imageSessionIdFromRoute ? { imageSessionId: imageSessionIdFromRoute } : undefined;
+      const res = await (GroqBibleService as any).queryBible(followUpQuery.trim(), context);
+      // Append to messages
+      setMessages(prev => [...prev, { question: followUpQuery.trim(), answer: res.answer, references: res.references || [], images: [] }]);
+      setFollowUpQuery('');
+    } catch (err) {
+      console.error('Follow-up failed', err);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // Main UI return block
@@ -205,7 +226,7 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
           >
             <Ionicons name="arrow-back" size={28} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>NM2BibleAI</Text>
+          <Text style={styles.headerTitle}>mAIchael - BibleAI</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
               <Ionicons name="copy-outline" size={22} color="#ffffff" />
@@ -331,21 +352,43 @@ export default function ResponseScreen({ route, navigation }: ResponseScreenProp
                         <View style={styles.referencesContainer}>
                           <Text style={styles.referencesTitle}>Sources</Text>
                           {msg.references.map((ref, index) => (
-                            <TouchableOpacity key={index} style={styles.referenceItem}>
-                              <View style={styles.referenceNumber}>
-                                <Text style={styles.referenceNumberText}>{index + 1}</Text>
-                              </View>
-                              <View style={styles.referenceContent}>
-                                <Text style={styles.referenceText}>{ref}</Text>
-                                <Text style={styles.referenceDomain}>Bible</Text>
-                              </View>
-                            </TouchableOpacity>
+                            <View key={index} style={styles.referenceItem}>
+                              <TouchableOpacity style={styles.referenceContent}>
+                                <View style={styles.referenceNumber}>
+                                  <Text style={styles.referenceNumberText}>{index + 1}</Text>
+                                </View>
+                                <View style={styles.referenceTextContainer}>
+                                  <Text style={styles.referenceText}>{ref}</Text>
+                                  <Text style={styles.referenceDomain}>Bible</Text>
+                                </View>
+                              </TouchableOpacity>
+                              {isAuthenticated && (
+                                <TouchableOpacity
+                                  style={styles.saveButton}
+                                  onPress={() => handleSaveVerse(ref, ref)}
+                                >
+                                  <Ionicons 
+                                    name={savedVerses.has(ref) ? "heart" : "heart-outline"} 
+                                    size={18} 
+                                    color={savedVerses.has(ref) ? "#ef4444" : "#9ca3af"} 
+                                  />
+                                </TouchableOpacity>
+                              )}
+                            </View>
                           ))}
                         </View>
                       )}
                       {/* Action Icons under response */}
                       {!isTyping && (
                         <View style={styles.responseActionIcons}>
+                          {isAuthenticated && (
+                            <TouchableOpacity 
+                              style={styles.responseIconButton} 
+                              onPress={() => handleSaveVerse('AI Response', msg.answer)}
+                            >
+                              <Ionicons name="heart-outline" size={16} color="#9ca3af" />
+                            </TouchableOpacity>
+                          )}
                           <TouchableOpacity style={styles.responseIconButton} onPress={handleShare}>
                             <Ionicons name="share-outline" size={16} color="#9ca3af" />
                           </TouchableOpacity>
@@ -637,7 +680,7 @@ const styles = StyleSheet.create({
   },
   referenceItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
     padding: 12,
     backgroundColor: 'rgba(75, 85, 99, 0.3)',
@@ -662,6 +705,12 @@ const styles = StyleSheet.create({
   },
   referenceContent: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  referenceTextContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
   referenceText: {
     color: '#e5e7eb',
@@ -673,6 +722,10 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontSize: 12,
     fontWeight: '500',
+  },
+  saveButton: {
+    padding: 8,
+    marginLeft: 8,
   },
   responseActionIcons: {
     flexDirection: 'row',

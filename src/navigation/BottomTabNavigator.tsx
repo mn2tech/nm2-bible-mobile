@@ -3,9 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeScreen from '../screens/HomeScreen';
-import SearchScreen from '../screens/SearchScreen';
 import ReadingScreen from '../screens/ReadingScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -26,12 +26,11 @@ export default function BottomTabNavigator() {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'Home') {
-            iconName = focused ? 'locate' : 'locate-outline';
-          } else if (route.name === 'Search' || route.name === 'BiblicalNews') {
-            iconName = focused ? 'newspaper' : 'newspaper-outline';
-          } else if (route.name === 'DailyDevotional' || route.name === 'Favorites') {
-            // Favorites tab repurposed as Daily Devotional — show a book icon
-            iconName = focused ? 'book' : 'book-outline';
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Favorites') {
+            iconName = focused ? 'heart' : 'heart-outline';
+          } else if (route.name === 'History') {
+            iconName = focused ? 'time' : 'time-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -62,18 +61,9 @@ export default function BottomTabNavigator() {
       })}
     >
   <Tab.Screen name="Home" component={HomeScreen} />
-      {/* Renamed Search tab to BiblicalNews (still uses SearchScreen component) */}
-      <Tab.Screen
-        name="BiblicalNews"
-        component={SearchScreen}
-        options={{
-          tabBarLabel: 'Biblical News',
-          tabBarShowLabel: true,
-          tabBarAccessibilityLabel: 'Biblical News Tab',
-        }}
-      />
   <Tab.Screen name="Pray" component={ReadingScreen} options={{ tabBarLabel: 'Pray' }} />
-  <Tab.Screen name="DailyDevotional" component={FavoritesScreen} options={{ tabBarLabel: 'Devotional', tabBarAccessibilityLabel: 'Devotional Tab' }} />
+  <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Favorites', tabBarAccessibilityLabel: 'Favorites Tab' }} />
+  <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: 'History', tabBarAccessibilityLabel: 'History Tab' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

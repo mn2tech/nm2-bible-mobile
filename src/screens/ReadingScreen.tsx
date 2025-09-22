@@ -184,7 +184,7 @@ export default function ReadingScreen() {
             <View style={styles.centerArea}>
         <View style={styles.topBanner}>
           <Text style={styles.focusTitle}>Today's Focus</Text>
-          <Text style={styles.focusText}>Be still and know that I am God. — Psalm 46:10</Text>
+          <Text style={styles.focusText}>Be still and know that I am God. - Psalm 46:10</Text>
         </View>
 
         <Image
@@ -203,7 +203,7 @@ export default function ReadingScreen() {
         </View>
 
         <TouchableOpacity style={styles.appointmentButton} onPress={startTimer} accessibilityLabel="Make appointment with God now">
-          <Text style={styles.appointmentText}>Make appointment with God — Start now</Text>
+          <Text style={styles.appointmentText}>Make appointment with God - Start now</Text>
         </TouchableOpacity>
 
         <Text style={styles.largeTime}>{formatTime(remaining > 0 ? remaining : durationSec)}</Text>
