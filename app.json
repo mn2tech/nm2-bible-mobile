@@ -29,7 +29,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "nm2bibleai",
     "extra": {
       "eas": {
         "projectId": "3e7a9bca-dc6e-49e3-848c-473601f477d1"
@@ -42,7 +41,8 @@
       "url": "https://u.expo.dev/3e7a9bca-dc6e-49e3-848c-473601f477d1"
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      "expo-audio"
     ]
   }
 }

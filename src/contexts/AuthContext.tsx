@@ -80,10 +80,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const setUser = async (newUser: GoogleUser | null) => {
+    console.log('AuthContext: setUser called with:', newUser);
     setUserState(newUser);
     try {
       if (newUser) {
         await AsyncStorage.setItem('user', JSON.stringify(newUser));
+        console.log('AuthContext: User saved to storage');
         
         // Initialize or load user profile (with error handling)
         try {
