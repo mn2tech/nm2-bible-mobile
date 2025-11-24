@@ -9,6 +9,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "description": "NM2BibleAI - Your AI-powered Bible companion for spiritual guidance and study",
+    "keywords": ["bible", "ai", "spiritual", "christian", "study", "prayer"],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,14 +22,53 @@
     },
     "android": {
       "package": "com.nm2tech.nm2bibleai",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.nm2tech.nm2bibleai"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "NM2BibleAI",
+      "shortName": "BibleAI",
+      "lang": "en",
+      "scope": "/",
+      "themeColor": "#ffffff",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "manifest": {
+        "name": "NM2BibleAI - AI-powered Bible Companion",
+        "short_name": "BibleAI",
+        "description": "Your AI-powered Bible companion for spiritual guidance and study",
+        "theme_color": "#ffffff",
+        "background_color": "#ffffff",
+        "display": "standalone",
+        "orientation": "portrait",
+        "start_url": "/",
+        "icons": [
+          {
+            "src": "./assets/icon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+          },
+          {
+            "src": "./assets/icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+          }
+        ]
+      }
     },
     "extra": {
       "eas": {
